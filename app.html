@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>画像デジタル化シミュレーター（虫眼鏡モード）</title>
+    <style>
+        /* 画面全体の基本設定 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f5f7;
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+            box-sizing: border-box;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            background-color: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            padding: 20px;
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            box-sizing: border-box;
+        }
+
+        /* 左側の操作パネル */
+        .side-panel {
+            flex: 0 0 250px;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+
+        /* 右側のプレビューエリア */
+        .preview-panel {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f8f9fa;
+            border-radius: 12px;
+            border: 1px solid #dfe1e6;
+            min-height: 500px;
+            padding: 16px;
+            position: relative; /* ルーペの基準 */
+            box-sizing: border-box;
+            overflow: hidden;
+            cursor: none; /* 【重要】画像上ではマウスカーソルを消す（ルーペ自体がカーソルになる） */
+        }
+
+        h2 { font-size: 1.15rem; color: #0d1216; margin: 0 0 6px 0; }
+        .description { font-size: 0.8rem; color: #5e6c84; margin-bottom: 16px; }
+
+        /* 画像選択エリア */
+        .upload-area {
+            border: 2px dashed #00c49f;
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            background-color: #fafffe;
+            margin-bottom: 20px;
+        }
+        .upload-text { font-size: 0.9rem; color: #00c49f; font-weight: bold; margin: 0; }
+
+        /* コントロール群 */
+        .control-group { margin-bottom: 18px; }
+        .control-label {
+            display: flex; justify-content: space-between;
+            font-size: 0.85rem; font-weight: bold; color: #2d3748; margin-bottom: 6px;
+        }
+        .control-value { color: #00c49f; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .segmented-control { display: flex; background-color: #f4f5f7; border-radius: 8px; padding: 3px; }
+        .segmented-btn {
+            flex: 1; background: none; border: none; padding: 8px;
+            font-size: 0.85rem; font-weight: bold; color: #5e6c84; cursor: pointer; border-radius: 6px;
+        }
+        .segmented-btn.active {
+            background-color: #ffffff; color: #0d1216; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .radio-group { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .radio-label {
+            display: block; background-color: #f4f5f7; padding: 8px 4px; border-radius: 8px;
+            text-align: center; font-size: 0.8rem; cursor: pointer; border: 2px solid transparent; line-height: 1.2;
+        }
+        input[type="radio"] { display: none; }
+        input[type="radio"]:checked + .radio-label {
+            background-color: #ffffff; border-color: #00c49f; color: #00c49f; font-weight: bold;
+        }
+
+        /* プレビュー画像（キャンバス） */
+        #previewCanvas {
+            max-width: 100%;
+            max-height: 650px;
+            object-fit: contain;
+            image-rendering: pixelated; /* ドットをパキッと表示 */
+        }
+
+        /* 【新機能】真上に重ねる拡大ルーペ */
+        #zoomDisplay {
+            display: none; /* 初期は隠す */
+            position: absolute;
+            width: 200px; /* ルーペのサイズ（少し大きくしました） */
+            height: 200px;
+            border-radius: 50%;
+            border: 4px solid #ffffff; /* 白いフレーム */
+            box-shadow: 0 0 0 2px rgba(0,0,0,0.1), 0 8px 24px rgba(0,0,0,0.3); /* 影で立体感を出す */
+            pointer-events: none; /* ルーペを貫通してCanvasを操作させる */
+            background-repeat: no-repeat;
+            image-rendering: pixelated; /* ルーペ内もドットを強調 */
+            z-index: 10;
+        }
+
+        @media (max-width: 768px) {
+            .app-container { flex-direction: column; }
+            .side-panel { flex: none; width: 100%; }
+            .preview-panel { cursor: default; } /* スマホ等はカーソルを消さない */
+            #zoomDisplay { width: 150px; height: 150px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="side-panel">
+        <h2>画像デジタル化</h2>
+        <div class="description">PPIと階調の変化を大画面で実験</div>
+
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <p class="upload-text">📁 画像を選択</p>
+            <input type="file" id="fileInput" accept="image/*" style="display: none">
+        </div>
+
+        <div id="controls" style="display: none;">
+            <div class="control-group">
+                <div class="control-label">
+                    <span>解像度 (標本化)</span>
+                    <span class="control-value" id="ppiValue">300 ppi</span>
+                </div>
+                <input type="range" id="ppiSlider" min="10" max="300" value="300">
+            </div>
+
+            <div class="control-group">
+                <div class="control-label"><span>色調</span></div>
+                <div class="segmented-control">
+                    <button class="segmented-btn active" id="btnColor" onclick="setColorMode('color')">カラー</button>
+                    <button class="segmented-btn" id="btnMono" onclick="setColorMode('mono')">モノクロ</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-label"><span>階調 (量子化)</span></div>
+                <div class="radio-group">
+                    <label><input type="radio" name="levels" value="256" checked><span class="radio-label">256階調<br>(8bit)</span></label>
+                    <label><input type="radio" name="levels" value="16"><span class="radio-label">16階調<br>(4bit)</span></label>
+                    <label><input type="radio" name="levels" value="4"><span class="radio-label">4階調<br>(2bit)</span></label>
+                    <label><input type="radio" name="levels" value="2"><span class="radio-label">2階調<br>(1bit)</span></label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="preview-panel" id="previewPanel">
+        <p id="placeholderText" style="color: #999;">画像を選択するとここに表示されます</p>
+        <canvas id="previewCanvas"></canvas>
+        <div id="zoomDisplay"></div>
+    </div>
+</div>
+
+<script>
+    let originalImage = null;
+    let colorMode = 'color';
+
+    const fileInput = document.getElementById('fileInput');
+    const ppiSlider = document.getElementById('ppiSlider');
+    const ppiValue = document.getElementById('ppiValue');
+    const canvas = document.getElementById('previewCanvas');
+    const ctx = canvas.getContext('2d');
+    const controls = document.getElementById('controls');
+    const placeholderText = document.getElementById('placeholderText');
+    const zoomDisplay = document.getElementById('zoomDisplay');
+    const previewPanel = document.getElementById('previewPanel'); // 【新機能用】
+
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() {
+                originalImage = img;
+                controls.style.display = 'block';
+                placeholderText.style.display = 'none';
+                processImage();
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+
+    function setColorMode(mode) {
+        colorMode = mode;
+        document.getElementById('btnColor').classList.toggle('active', mode === 'color');
+        document.getElementById('btnMono').classList.toggle('active', mode === 'mono');
+        processImage();
+    }
+
+    ppiSlider.addEventListener('input', processImage);
+    document.getElementsByName('levels').forEach(radio => {
+        radio.addEventListener('change', processImage);
+    });
+
+    function processImage() {
+        if (!originalImage) return;
+
+        const levels = parseInt(document.querySelector('input[name="levels"]:checked').value);
+        const ppi = parseInt(ppiSlider.value);
+        ppiValue.textContent = ppi + ' ppi';
+
+        const origW = originalImage.width;
+        const origH = originalImage.height;
+
+        const scale = ppi / 300;
+        const sw = Math.max(1, Math.round(origW * scale));
+        const sh = Math.max(1, Math.round(origH * scale));
+
+        const offscreen = document.createElement('canvas');
+        offscreen.width = sw;
+        offscreen.height = sh;
+        const oCtx = offscreen.getContext('2d');
+        oCtx.drawImage(originalImage, 0, 0, sw, sh);
+
+        const imgData = oCtx.getImageData(0, 0, sw, sh);
+        const data = imgData.data;
+
+        for (let i = 0; i < data.length; i += 4) {
+            let r = data[i], g = data[i+1], b = data[i+2];
+            if (colorMode === 'mono') { const v = 0.299 * r + 0.587 * g + 0.114 * b; r = g = b = v; }
+            if (levels < 256) {
+                r = Math.round(r / 255 * (levels - 1)) * (255 / (levels - 1));
+                g = Math.round(g / 255 * (levels - 1)) * (255 / (levels - 1));
+                b = Math.round(b / 255 * (levels - 1)) * (255 / (levels - 1));
+            }
+            data[i] = r; data[i+1] = g; data[i+2] = b;
+        }
+        oCtx.putImageData(imgData, 0, 0);
+
+        canvas.width = origW;
+        canvas.height = origH;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(offscreen, 0, 0, sw, sh, 0, 0, origW, origH);
+
+        // ルーペの背景画像を更新
+        zoomDisplay.style.backgroundImage = `url(${canvas.toDataURL()})`;
+    }
+
+    // 【改良】拡大ルーペ（ずらさない虫眼鏡モード）のロジック
+    function moveZoom(e) {
+        if (!originalImage) return;
+
+        const event = (e.type === 'touchstart' || e.type === 'touchmove') ? e.touches[0] : e;
+        
+        // プレビューパネル（背景グレーのエリア）上の座標を取得
+        const rect = previewPanel.getBoundingClientRect();
+        const px = event.clientX - rect.left;
+        const py = event.clientY - rect.top;
+
+        // Canvasが表示されている実寸を取得
+        const cw = canvas.clientWidth;
+        const ch = canvas.clientHeight;
+        
+        // Canvasの、パネル内での表示位置を取得（中央寄せされているため）
+        const caX = (rect.width - cw) / 2;
+        const caY = (rect.height - ch) / 2;
+
+        // マウスがCanvas（画像）の外側にある場合はルーペを隠す
+        if (px < caX || py < caY || px > caX + cw || py > caY + ch) {
+            zoomDisplay.style.display = 'none';
+            return;
+        }
+
+        // マウスが画像上にあるので、ルーペを表示
+        zoomDisplay.style.display = 'block';
+
+        // 拡大倍率（3倍）
+        const zoomFactor = 3;
+
+        // 【変更点】ルーペの中心をマウス（指）の完全に真下に重ねる
+        zoomDisplay.style.left = (px - zoomDisplay.offsetWidth / 2) + 'px';
+        zoomDisplay.style.top = (py - zoomDisplay.offsetHeight / 2) + 'px';
+
+        // Canvas本来の解像度に対する、マウス位置の比率を計算
+        const bx = ((px - caX) / cw) * canvas.width;
+        const by = ((py - caY) / ch) * canvas.height;
+
+        // 背景画像の表示位置を調整（これでずれない拡大になる）
+        const bgX = -(bx * zoomFactor - zoomDisplay.offsetWidth / 2);
+        const bgY = -(by * zoomFactor - zoomDisplay.offsetHeight / 2);
+
+        zoomDisplay.style.backgroundSize = `${canvas.width * zoomFactor}px ${canvas.height * zoomFactor}px`;
+        zoomDisplay.style.backgroundPosition = `${bgX}px ${bgY}px`;
+    }
+
+    // イベントリスナーの登録（親のpreviewPanelに対して登録）
+    previewPanel.addEventListener('mousemove', moveZoom);
+    previewPanel.addEventListener('mouseleave', () => zoomDisplay.style.display = 'none');
+    
+    // Chromebookなどのタッチ操作対応
+    previewPanel.addEventListener('touchstart', (e) => {
+        if (originalImage) e.preventDefault(); // スクロール防止
+        moveZoom(e);
+    }, {passive: false});
+    previewPanel.addEventListener('touchmove', moveZoom, {passive: false});
+    previewPanel.addEventListener('touchend', () => zoomDisplay.style.display = 'none');
+
+</script>
+
+</body>
+</html>
