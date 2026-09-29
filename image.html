@@ -96,6 +96,24 @@
             background-color: #ffffff; border-color: #00c49f; color: #00c49f; font-weight: bold;
         }
 
+        /* 【新設】概算データサイズ表示エリア */
+        .size-info-box {
+            background-color: #f8f9fa;
+            border: 1px solid #dfe1e6;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: auto; /* パネルの一番下に固定 */
+            font-size: 0.8rem;
+            color: #333;
+        }
+        .size-info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        .size-info-row:last-child { margin-bottom: 0; }
+        .size-strong { font-weight: bold; color: #00c49f; font-size: 0.95rem; }
+
         /* プレビュー画像（キャンバス） */
         #previewCanvas {
             max-width: 100%;
@@ -104,11 +122,11 @@
             image-rendering: pixelated; /* ドットをパキッと表示 */
         }
 
-        /* 【新機能】真上に重ねる拡大ルーペ */
+        /* 真上に重ねる拡大ルーペ */
         #zoomDisplay {
             display: none; /* 初期は隠す */
             position: absolute;
-            width: 200px; /* ルーペのサイズ（少し大きくしました） */
+            width: 200px; /* ルーペのサイズ */
             height: 200px;
             border-radius: 50%;
             border: 4px solid #ffffff; /* 白いフレーム */
@@ -124,6 +142,7 @@
             .side-panel { flex: none; width: 100%; }
             .preview-panel { cursor: default; } /* スマホ等はカーソルを消さない */
             #zoomDisplay { width: 150px; height: 150px; }
+            .size-info-box { margin-top: 16px; }
         }
     </style>
 </head>
@@ -139,7 +158,7 @@
             <input type="file" id="fileInput" accept="image/*" style="display: none">
         </div>
 
-        <div id="controls" style="display: none;">
+        <div id="controls" style="display: none; flex-grow: 1; display: flex; flex-direction: column;">
             <div class="control-group">
                 <div class="control-label">
                     <span>解像度 (標本化)</span>
@@ -165,11 +184,27 @@
                     <label><input type="radio" name="levels" value="2"><span class="radio-label">2階調<br>(1bit)</span></label>
                 </div>
             </div>
+
+            <div class="size-info-box">
+                <div class="size-info-row">
+                    <span>サンプリング画素数:</span>
+                    <span id="pixelCount">0 x 0</span>
+                </div>
+                <div class="size-info-row">
+                    <span>1画素あたりのデータ量:</span>
+                    <span id="bitPerPixel">24 bit</span>
+                </div>
+                <hr style="border: none; border-top: 1px dashed #dfe1e6; margin: 6px 0;">
+                <div class="size-info-row" style="align-items: center;">
+                    <span style="font-weight: bold;">概算データサイズ:</span>
+                    <span id="fileSizeValue" class="size-strong">0 KB</span>
+                </div>
+            </div>
         </div>
     </div>
 
     <div class="preview-panel" id="previewPanel">
-        <p id="placeholderText" style="color: #999;">画像を選択するとここに表示されます</p>
+        <p id="placeholderText" style="color: #999;">画像を選択すると大画面表示されます</p>
         <canvas id="previewCanvas"></canvas>
         <div id="zoomDisplay"></div>
     </div>
@@ -187,7 +222,12 @@
     const controls = document.getElementById('controls');
     const placeholderText = document.getElementById('placeholderText');
     const zoomDisplay = document.getElementById('zoomDisplay');
-    const previewPanel = document.getElementById('previewPanel'); // 【新機能用】
+    const previewPanel = document.getElementById('previewPanel');
+
+    // サイズ表示用要素の取得
+    const pixelCountEl = document.getElementById('pixelCount');
+    const bitPerPixelEl = document.getElementById('bitPerPixel');
+    const fileSizeValueEl = document.getElementById('fileSizeValue');
 
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
@@ -198,7 +238,8 @@
             const img = new Image();
             img.onload = function() {
                 originalImage = img;
-                controls.style.display = 'block';
+                controls.style.style = ''; // CSSのflex等を生かすため直に空にする
+                controls.style.display = 'flex'; 
                 placeholderText.style.display = 'none';
                 processImage();
             };
@@ -222,7 +263,8 @@
     function processImage() {
         if (!originalImage) return;
 
-        const levels = parseInt(document.querySelector('input[name="levels"]:checked').value);
+        const radioSelected = document.querySelector('input[name="levels"]:checked');
+        const levels = parseInt(radioSelected.value);
         const ppi = parseInt(ppiSlider.value);
         ppiValue.textContent = ppi + ' ppi';
 
@@ -259,50 +301,67 @@
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(offscreen, 0, 0, sw, sh, 0, 0, origW, origH);
 
-        // ルーペの背景画像を更新
         zoomDisplay.style.backgroundImage = `url(${canvas.toDataURL()})`;
+
+        // 【新機能】データサイズ計算ロジック
+        calculateDataSize(sw, sh, levels, colorMode);
     }
 
-    // 【改良】拡大ルーペ（ずらさない虫眼鏡モード）のロジック
+    // データサイズ計算関数
+    function calculateDataSize(width, height, levels, mode) {
+        // 階調値(256, 16, 4, 2) から対応するビット数(8, 4, 2, 1)を算出
+        const bitPerChannel = Math.log2(levels); 
+        
+        // カラーの場合はRGBの3チャンネル分、モノクロ（グレースケール）は1チャンネル分
+        const bitPerPixel = (mode === 'color') ? bitPerChannel * 3 : bitPerChannel;
+
+        // 総ビット数 = 横の画素数 × 縦の画素数 × 1画素あたりのビット数
+        const totalBits = width * height * bitPerPixel;
+        // バイト換算
+        const totalBytes = totalBits / 8;
+
+        // UI表示の更新
+        pixelCountEl.textContent = `${width} × ${height}`;
+        bitPerPixelEl.textContent = `${bitPerPixel} bit`;
+
+        // 単位変換 (KBまたはMB)
+        if (totalBytes >= 1024 * 1024) {
+            fileSizeValueEl.textContent = (totalBytes / (1024 * 1024)).toFixed(2) + ' MB';
+        } else {
+            fileSizeValueEl.textContent = (totalBytes / 1024).toFixed(1) + ' KB';
+        }
+    }
+
+    // 拡大ルーペ（ずらさない虫眼鏡モード）のロジック
     function moveZoom(e) {
         if (!originalImage) return;
 
         const event = (e.type === 'touchstart' || e.type === 'touchmove') ? e.touches[0] : e;
         
-        // プレビューパネル（背景グレーのエリア）上の座標を取得
         const rect = previewPanel.getBoundingClientRect();
         const px = event.clientX - rect.left;
         const py = event.clientY - rect.top;
 
-        // Canvasが表示されている実寸を取得
         const cw = canvas.clientWidth;
         const ch = canvas.clientHeight;
         
-        // Canvasの、パネル内での表示位置を取得（中央寄せされているため）
         const caX = (rect.width - cw) / 2;
         const caY = (rect.height - ch) / 2;
 
-        // マウスがCanvas（画像）の外側にある場合はルーペを隠す
         if (px < caX || py < caY || px > caX + cw || py > caY + ch) {
             zoomDisplay.style.display = 'none';
             return;
         }
 
-        // マウスが画像上にあるので、ルーペを表示
         zoomDisplay.style.display = 'block';
-
-        // 拡大倍率（3倍）
         const zoomFactor = 3;
 
-        // 【変更点】ルーペの中心をマウス（指）の完全に真下に重ねる
         zoomDisplay.style.left = (px - zoomDisplay.offsetWidth / 2) + 'px';
         zoomDisplay.style.top = (py - zoomDisplay.offsetHeight / 2) + 'px';
 
-        // Canvas本来の解像度に対する、マウス位置の比率を計算
         const bx = ((px - caX) / cw) * canvas.width;
         const by = ((py - caY) / ch) * canvas.height;
 
-        // 背景画像の表示位置を調整（これでずれない拡大になる）
         const bgX = -(bx * zoomFactor - zoomDisplay.offsetWidth / 2);
         const bgY = -(by * zoomFactor - zoomDisplay.offsetHeight / 2);
 
@@ -310,18 +369,15 @@
         zoomDisplay.style.backgroundPosition = `${bgX}px ${bgY}px`;
     }
 
-    // イベントリスナーの登録（親のpreviewPanelに対して登録）
     previewPanel.addEventListener('mousemove', moveZoom);
     previewPanel.addEventListener('mouseleave', () => zoomDisplay.style.display = 'none');
     
-    // Chromebookなどのタッチ操作対応
     previewPanel.addEventListener('touchstart', (e) => {
-        if (originalImage) e.preventDefault(); // スクロール防止
+        if (originalImage) e.preventDefault();
         moveZoom(e);
     }, {passive: false});
     previewPanel.addEventListener('touchmove', moveZoom, {passive: false});
     previewPanel.addEventListener('touchend', () => zoomDisplay.style.display = 'none');
-
 </script>
 
 </body>
