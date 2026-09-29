@@ -1,0 +1,24 @@
+@charset "utf-8";
+
+body{
+  background:#ffffcc;
+  margin:10% 5%;
+}
+
+h1{
+  background:#ff0033;
+  color:#ffffff;
+  margin:10px 40px 30px 40px;
+  padding:10px;
+  border:10px double #ff9900;
+}
+h2{
+  background:#ff6600;
+  color:#000033;
+  margin:10px 30px;
+  padding:5px;
+  border:5px dashed #ffcc00;
+}
+p{
+  margin:5px 35px;
+}
