@@ -1,28 +1,33 @@
 @charset "utf-8";
 
 body{
-  background:#ffffcc;
+  background:#ffc;
   margin:10% 5%;
   text-align:center;
 }
 
 h1{
-  background:#ff0033;
-  color:#ffffff;
+  background:#f03;
+  color:#fff;
   margin:10px 40px 30px 40px;
   padding:10px;
   border:10px double #ff9900;
 }
 h2{
-  background:#ff6600;
-  color:#000033;
+  background:#f60;
+  color:#003;
   margin:10px 30px;
   padding:5px;
-  border:5px dashed #ffcc00;
+  border:5px dashed #fc0;
 }
 p{
   margin:5px 35px;
 }
 a{
+  color:#555;
   text-decoration:none;
+}
+a:hover{
+  background:#ccf;
+  color:#dddddd;
 }
