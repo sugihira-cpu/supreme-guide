@@ -129,12 +129,25 @@
             </div>
         </div>
 
-        <!-- Action Toolbar -->
+        <!-- Action Toolbar (右上操作エリア) -->
         <div class="flex items-center gap-2">
             <button id="btn-run-all-tt" class="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-semibold rounded-md shadow transition">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 全パターン自動検証
             </button>
+
+            <div class="h-4 w-px bg-slate-800 mx-1"></div>
+
+            <!-- 回路図 保存・読み込み ボタン -->
+            <button id="btn-save" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs rounded-md transition flex items-center gap-1" title="回路図をファイル(JSON)に保存">
+                <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+                保存
+            </button>
+            <button id="btn-load" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs rounded-md transition flex items-center gap-1" title="保存した回路図(JSON)を読み込み">
+                <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                読み込み
+            </button>
+            <input type="file" id="file-input" accept=".json" class="hidden">
 
             <div class="h-4 w-px bg-slate-800 mx-1"></div>
 
@@ -189,9 +202,9 @@
 
                     <!-- AND Gate Item -->
                     <div class="palette-item bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 hover:border-blue-500/50 p-1.5 rounded-lg cursor-grab active:cursor-grabbing flex items-center gap-2.5 transition group" draggable="true" data-type="and">
-                        <div class="w-8 h-8 rounded bg-slate-900 border border-slate-700 flex items-center justify-center text-blue-400 group-hover:scale-105 transition">
-                            <svg class="w-5 h-5" viewBox="0 0 40 30" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M 5,5 L 20,5 C 30,5 30,25 20,25 L 5,25 Z" fill="#1e293b"/>
+                        <div class="w-8 h-8 rounded bg-slate-900 border border-slate-700 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition">
+                            <svg class="w-6 h-6" viewBox="0 0 40 30" fill="none">
+                                <path d="M 6,5 L 18,5 C 28,5 28,25 18,25 L 6,25 Z" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
                             </svg>
                         </div>
                         <div>
@@ -203,8 +216,8 @@
                     <!-- OR Gate Item -->
                     <div class="palette-item bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 hover:border-indigo-500/50 p-1.5 rounded-lg cursor-grab active:cursor-grabbing flex items-center gap-2.5 transition group" draggable="true" data-type="or">
                         <div class="w-8 h-8 rounded bg-slate-900 border border-slate-700 flex items-center justify-center text-indigo-400 group-hover:scale-105 transition">
-                            <svg class="w-5 h-5" viewBox="0 0 40 30" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M 5,5 Q 15,15 5,25 Q 22,25 35,15 Q 22,5 5,5 Z" fill="#1e293b"/>
+                            <svg class="w-6 h-6" viewBox="0 0 40 30" fill="none">
+                                <path d="M 6,5 C 13,11 13,19 6,25 C 18,25 28,20 34,15 C 28,10 18,5 6,5 Z" fill="#0f172a" stroke="#818cf8" stroke-width="2"/>
                             </svg>
                         </div>
                         <div>
@@ -216,9 +229,9 @@
                     <!-- NOT Gate Item -->
                     <div class="palette-item bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 hover:border-purple-500/50 p-1.5 rounded-lg cursor-grab active:cursor-grabbing flex items-center gap-2.5 transition group" draggable="true" data-type="not">
                         <div class="w-8 h-8 rounded bg-slate-900 border border-slate-700 flex items-center justify-center text-purple-400 group-hover:scale-105 transition">
-                            <svg class="w-5 h-5" viewBox="0 0 40 30" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M 5,5 L 28,15 L 5,25 Z" fill="#1e293b"/>
-                                <circle cx="32" cy="15" r="2.5" fill="#1e293b"/>
+                            <svg class="w-6 h-6" viewBox="0 0 40 30" fill="none">
+                                <path d="M 6,5 L 24,15 L 6,25 Z" fill="#0f172a" stroke="#c084fc" stroke-width="2"/>
+                                <circle cx="28" cy="15" r="2.5" fill="#0f172a" stroke="#c084fc" stroke-width="2"/>
                             </svg>
                         </div>
                         <div>
@@ -231,29 +244,32 @@
 
                 <!-- Wire Hint Footer -->
                 <div class="mt-auto pt-2 border-t border-slate-800 text-[10px] text-slate-400 space-y-0.5">
-                    <p>💡 <strong class="text-cyan-400">操作:</strong> ピン間ドラッグで配線 / 配線クリックで消去 / スイッチクリックで検証</p>
+                    <p>💡 <strong class="text-cyan-400">操作:</strong> ピン間ドラッグで配線 / ダブルクリックで名称変更 / スイッチクリックで検証</p>
                 </div>
             </aside>
 
             <!-- Center Interactive Canvas Area -->
-            <main id="canvas-container" class="flex-1 relative bg-canvasbg grid-bg overflow-hidden cursor-crosshair">
-                
-                <!-- SVG Layer for Connections/Wires -->
-                <svg id="svg-wires" class="absolute inset-0 w-full h-full pointer-events-none z-0">
-                    <!-- Dynamic wires render here -->
-                </svg>
-
-                <!-- HTML Layer for Logic Nodes -->
-                <div id="nodes-container" class="absolute inset-0 z-10 pointer-events-none">
-                    <!-- Dynamic node elements render here -->
-                </div>
-
-                <!-- Empty Canvas Watermark / Hint -->
-                <div id="empty-hint" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-40">
-                    <svg class="w-12 h-12 text-slate-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            <main id="canvas-container" class="flex-1 relative bg-canvasbg grid-bg overflow-auto cursor-crosshair">
+                <div id="canvas-inner" class="relative min-w-[900px] min-h-[600px] w-full h-full">
+                    
+                    <!-- SVG Layer for Connections/Wires -->
+                    <svg id="svg-wires" class="absolute inset-0 w-full h-full pointer-events-none z-0">
+                        <!-- Dynamic wires render here -->
                     </svg>
-                    <p class="text-xs font-medium text-slate-400">パーツをパレットからドラッグして配置してください</p>
+
+                    <!-- HTML Layer for Logic Nodes -->
+                    <div id="nodes-container" class="absolute inset-0 z-10 pointer-events-none">
+                        <!-- Dynamic node elements render here -->
+                    </div>
+
+                    <!-- Empty Canvas Watermark / Hint -->
+                    <div id="empty-hint" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-40">
+                        <svg class="w-12 h-12 text-slate-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                        <p class="text-xs font-medium text-slate-400">パーツをパレットからドラッグして配置してください</p>
+                    </div>
+
                 </div>
             </main>
         </div>
@@ -264,7 +280,7 @@
         <!-- Bottom Constant Truth Table Panel -->
         <section id="truth-table-panel" class="h-56 bg-slate-900 border-t border-slate-800 flex flex-col z-20 shrink-0 transition-none">
             <!-- Panel Control Bar -->
-            <div class="h-9 px-4 bg-slate-900/90 border-b border-slate-800/80 flex items-center justify-between shrink-0">
+            <div class="min-h-9 px-4 py-1 bg-slate-900/90 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-2 shrink-0">
                 <div class="flex items-center gap-3">
                     <div class="flex items-center gap-1.5 text-xs font-bold text-slate-200">
                         <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
@@ -275,7 +291,16 @@
                     </span>
                 </div>
 
-                <div class="flex items-center gap-2 text-xs">
+                <div class="flex items-center gap-2 text-xs flex-wrap">
+                    <!-- Font Size Switcher for Truth Table -->
+                    <div class="flex items-center gap-0.5 bg-slate-800/80 p-0.5 rounded border border-slate-700/80 text-[11px]">
+                        <span class="text-slate-400 px-1 text-[10px] select-none">文字サイズ:</span>
+                        <button id="btn-fs-sm" class="font-size-btn px-1.5 py-0.5 rounded text-slate-300 hover:bg-slate-700 transition">小</button>
+                        <button id="btn-fs-md" class="font-size-btn px-1.5 py-0.5 rounded text-white bg-cyan-600 font-bold transition">標準</button>
+                        <button id="btn-fs-lg" class="font-size-btn px-1.5 py-0.5 rounded text-slate-300 hover:bg-slate-700 transition">大</button>
+                        <button id="btn-fs-xl" class="font-size-btn px-1.5 py-0.5 rounded text-slate-300 hover:bg-slate-700 transition">特大</button>
+                    </div>
+
                     <button id="btn-copy-csv" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 text-[11px] flex items-center gap-1 transition">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
                         CSVコピー
@@ -305,11 +330,13 @@
             <div class="space-y-2 text-xs leading-relaxed">
                 <p><strong class="text-cyan-400">1. パーツ配置:</strong> パレットからゲートやスイッチをドラッグ＆ドロップしてキャンバスに置きます。</p>
                 <p><strong class="text-cyan-400">2. ドラッグ配線:</strong> 出力ピン(右)をクリック＆ドラッグし、入力ピン(左)へ繋ぎます。</p>
-                <p><strong class="text-rose-400">3. 配線の切り離し・削除:</strong> 入力ピンからドラッグで配線を浮かせ、空中で離すと削除。配線直接クリックでも削除できます。</p>
-                <p><strong class="text-cyan-400">4. リアルタイム真理値表のルール:</strong></p>
+                <p><strong class="text-cyan-400">3. 名称の変更:</strong> ノードのラベル（A, B, OUT 1等）をダブルクリックすると名称変更が可能です。真理値表の列順は作成順に保持されます。</p>
+                <p><strong class="text-rose-400">4. 配線の切り離し・削除:</strong> 入力ピンからドラッグで配線を浮かせ、空中で離すと削除。配線直接クリックでも削除できます。</p>
+                <p><strong class="text-cyan-400">5. 保存・読み込み:</strong> 右上の「保存」ボタンで回路をファイルに保存、「読み込み」でいつでも読み込めます。</p>
+                <p><strong class="text-cyan-400">6. リアルタイム真理値表のルール:</strong></p>
                 <ul class="list-disc pl-4 space-y-1 text-slate-400">
-                    <li><strong class="text-slate-200">構成変更時:</strong> 回路を変更すると、画面下部に全入力行（$2^N$行）の表が生成され、出力結果は未確認（`-`）になります。</li>
-                    <li><strong class="text-slate-200">スイッチ操作時:</strong> 入力スイッチを切り替えると、該当行がシアン色にハイライトされ、その時の出力（0/1）が自動で記録・更新されます。</li>
+                    <li><strong class="text-slate-200">構成変更時:</strong> 回路を変更すると、全入力パターン（$2^N$行）の表が生成されます。</li>
+                    <li><strong class="text-slate-200">スイッチ操作時:</strong> 入力スイッチを切り替えると、該当行がシアン色にハイライトされ結果が更新されます。</li>
                     <li><strong class="text-slate-200">一括検証:</strong> ヘッダーの「全パターン自動検証」を押すと瞬時に全行の出力が確認完了します。</li>
                 </ul>
             </div>
@@ -326,7 +353,7 @@
     <script>
         // Simulator State
         const state = {
-            nodes: [],       // List of logic nodes
+            nodes: [],       // List of logic nodes (Creation Order Maintained Here)
             wires: [],       // List of active wires
             nextId: 1,
             selectedNodeId: null,
@@ -340,7 +367,8 @@
                 inputs: [],    // Array of Input node objects
                 outputs: [],   // Array of Output node objects
                 rows: [],      // Array of { inputPattern: [0,1], outputValues: [0,1]|null, tested: boolean }
-                panelCollapsed: false
+                panelCollapsed: false,
+                fontSizeClass: 'text-xs' // Default font size (Standard)
             }
         };
 
@@ -367,6 +395,7 @@
             setupEventListeners();
             setupPaletteDrag();
             initResizer();
+            setupFontSizeControls();
             startSimulationLoop();
             rebuildTruthTableSchema(); // Initial empty schema setup
         }
@@ -382,9 +411,9 @@
                 
                 item.addEventListener('click', () => {
                     const rect = canvasContainer.getBoundingClientRect();
-                    const x = rect.width / 2 - 50 + (Math.random() * 40 - 20);
-                    const y = rect.height / 2 - 30 + (Math.random() * 40 - 20);
-                    createNode(item.dataset.type, Math.max(20, x), Math.max(20, y));
+                    const x = canvasContainer.scrollLeft + Math.max(20, (canvasContainer.clientWidth / 2 - 50) + (Math.random() * 40 - 20));
+                    const y = canvasContainer.scrollTop + Math.max(20, (canvasContainer.clientHeight / 2 - 30) + (Math.random() * 40 - 20));
+                    createNode(item.dataset.type, x, y);
                 });
             });
 
@@ -398,8 +427,8 @@
                 const type = e.dataTransfer.getData('text/plain');
                 if (type && NODE_TYPES[type]) {
                     const rect = canvasContainer.getBoundingClientRect();
-                    const x = e.clientX - rect.left - 50;
-                    const y = e.clientY - rect.top - 30;
+                    const x = e.clientX - rect.left + canvasContainer.scrollLeft - 50;
+                    const y = e.clientY - rect.top + canvasContainer.scrollTop - 30;
                     createNode(type, Math.max(10, x), Math.max(10, y));
                 }
             });
@@ -431,6 +460,42 @@
                     isResizing = false;
                     document.body.style.cursor = '';
                     document.body.style.userSelect = '';
+                }
+            });
+        }
+
+        function setupFontSizeControls() {
+            const fontSizes = [
+                { id: 'btn-fs-sm', key: 'text-[10px]' },
+                { id: 'btn-fs-md', key: 'text-xs' },
+                { id: 'btn-fs-lg', key: 'text-sm' },
+                { id: 'btn-fs-xl', key: 'text-base' }
+            ];
+
+            fontSizes.forEach(s => {
+                const btn = document.getElementById(s.id);
+                if (btn) {
+                    btn.addEventListener('click', () => {
+                        state.truthTable.fontSizeClass = s.key;
+                        
+                        // Active status button toggle
+                        fontSizes.forEach(item => {
+                            const b = document.getElementById(item.id);
+                            if (b) {
+                                if (item.id === s.id) {
+                                    b.className = 'font-size-btn px-1.5 py-0.5 rounded text-white bg-cyan-600 font-bold transition';
+                                } else {
+                                    b.className = 'font-size-btn px-1.5 py-0.5 rounded text-slate-300 hover:bg-slate-700 transition';
+                                }
+                            }
+                        });
+
+                        // Dynamic font size change for table element
+                        const tableEl = document.getElementById('tt-table-el');
+                        if (tableEl) {
+                            tableEl.className = `w-auto min-w-[280px] text-center ${state.truthTable.fontSizeClass} font-mono border-collapse select-text`;
+                        }
+                    });
                 }
             });
         }
@@ -467,7 +532,7 @@
             evaluateCircuit();
             updateEmptyHint();
             
-            // RULE 1: Circuit structure changed -> Reset & Rebuild Truth Table Schema
+            // RULE: Circuit structure changed -> Reset & Rebuild Truth Table Schema
             rebuildTruthTableSchema();
             return node;
         }
@@ -481,7 +546,7 @@
             evaluateCircuit();
             updateEmptyHint();
 
-            // RULE 1: Circuit structure changed -> Reset & Rebuild Truth Table Schema
+            // RULE: Circuit structure changed -> Reset & Rebuild Truth Table Schema
             rebuildTruthTableSchema();
         }
 
@@ -491,7 +556,7 @@
             renderWires();
             evaluateCircuit();
 
-            // RULE 1: Circuit structure changed -> Reset & Rebuild Truth Table Schema
+            // RULE: Circuit structure changed -> Reset & Rebuild Truth Table Schema
             rebuildTruthTableSchema();
         }
 
@@ -522,7 +587,7 @@
                     const isOn = node.state.value === 1;
                     innerContent = `
                         <div class="flex-1 flex items-center justify-between px-3">
-                            <span class="text-xs font-bold text-cyan-400 font-mono">${node.label}</span>
+                            <span class="node-label text-xs font-bold text-cyan-400 font-mono cursor-pointer hover:underline" title="ダブルクリックで名称変更">${node.label}</span>
                             <button class="btn-toggle text-xs font-mono font-black w-10 py-1 rounded-md transition-all ${
                                 isOn ? 'bg-cyan-500 text-slate-950 switch-on' : 'bg-slate-800 text-slate-400 border border-slate-700'
                             }" title="クリックで 0 / 1 切替">
@@ -538,14 +603,14 @@
                             <div class="w-6 h-6 rounded-full ${isOn ? 'led-on' : 'led-off'} transition-all flex items-center justify-center font-mono text-xs select-none">
                                 ${isOn ? '1' : '0'}
                             </div>
-                            <span class="text-xs font-bold text-emerald-400 font-mono">${node.label}</span>
+                            <span class="node-label text-xs font-bold text-emerald-400 font-mono cursor-pointer hover:underline" title="ダブルクリックで名称変更">${node.label}</span>
                         </div>
                     `;
                 } else {
                     innerContent = `
-                        <div class="flex-1 flex items-center justify-center relative p-1">
+                        <div class="flex-1 flex flex-col items-center justify-center relative p-1">
                             ${getGateSvg(node.type)}
-                            <span class="absolute bottom-1 text-[10px] font-semibold text-slate-400">${node.label}</span>
+                            <span class="node-label text-[10px] font-semibold text-slate-400 cursor-pointer hover:underline mt-0.5" title="ダブルクリックで名称変更">${node.label}</span>
                         </div>
                     `;
                 }
@@ -585,21 +650,35 @@
             });
         }
 
+        // Standard MIL/JIS SVG Logic Gate Graphic
         function getGateSvg(type) {
-            const fill = "#1e293b";
+            const fill = "#0f172a";
             if (type === 'and') {
-                return `<svg class="w-12 h-9 text-slate-300" viewBox="0 0 40 30" fill="none" stroke="currentColor" stroke-width="2"><path d="M 8,5 L 20,5 C 30,5 30,25 20,25 L 8,25 Z" fill="${fill}"/></svg>`;
+                return `
+                    <svg class="w-12 h-8 text-cyan-400 drop-shadow" viewBox="0 0 40 30" fill="none">
+                        <path d="M 6,5 L 18,5 C 28,5 28,25 18,25 L 6,25 Z" fill="${fill}" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                `;
             } else if (type === 'or') {
-                return `<svg class="w-12 h-9 text-slate-300" viewBox="0 0 40 30" fill="none" stroke="currentColor" stroke-width="2"><path d="M 8,5 Q 16,15 8,25 Q 24,25 34,15 Q 24,5 8,5 Z" fill="${fill}"/></svg>`;
+                return `
+                    <svg class="w-12 h-8 text-indigo-400 drop-shadow" viewBox="0 0 40 30" fill="none">
+                        <path d="M 6,5 C 13,11 13,19 6,25 C 18,25 28,20 34,15 C 28,10 18,5 6,5 Z" fill="${fill}" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                `;
             } else if (type === 'not') {
-                return `<svg class="w-12 h-9 text-slate-300" viewBox="0 0 40 30" fill="none" stroke="currentColor" stroke-width="2"><path d="M 8,5 L 26,15 L 8,25 Z" fill="${fill}"/><circle cx="30" cy="15" r="2" fill="${fill}"/></svg>`;
+                return `
+                    <svg class="w-12 h-8 text-purple-400 drop-shadow" viewBox="0 0 40 30" fill="none">
+                        <path d="M 6,5 L 24,15 L 6,25 Z" fill="${fill}" stroke="currentColor" stroke-width="2"/>
+                        <circle cx="28" cy="15" r="2.5" fill="${fill}" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                `;
             }
             return '';
         }
 
         function setupNodeEvents(el, node) {
             el.addEventListener('mousedown', (e) => {
-                if (e.target.closest('.pin-node') || e.target.closest('.btn-toggle')) return;
+                if (e.target.closest('.pin-node') || e.target.closest('.btn-toggle') || e.target.closest('.node-label')) return;
                 state.selectedNodeId = node.id;
                 state.selectedWireId = null;
                 renderNodes();
@@ -611,8 +690,8 @@
                 e.stopPropagation();
                 state.draggingNode = node;
                 state.dragOffset = {
-                    x: e.clientX - node.x,
-                    y: e.clientY - node.y
+                    x: e.clientX + canvasContainer.scrollLeft - node.x,
+                    y: e.clientY + canvasContainer.scrollTop - node.y
                 };
             });
 
@@ -622,6 +701,20 @@
                 deleteNode(node.id);
             });
 
+            // Double Click to Rename Label
+            const labelEl = el.querySelector('.node-label');
+            if (labelEl) {
+                labelEl.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    const newLabel = prompt('ノードの名称（ラベル）を変更してください:', node.label);
+                    if (newLabel !== null && newLabel.trim() !== '') {
+                        node.label = newLabel.trim();
+                        renderNodes();
+                        renderTruthTableUI();
+                    }
+                });
+            }
+
             if (node.type === 'input') {
                 const btnToggle = el.querySelector('.btn-toggle');
                 btnToggle.addEventListener('click', (e) => {
@@ -630,7 +723,7 @@
                     evaluateCircuit();
                     renderNodes();
 
-                    // RULE 2: Switch clicked -> Record & Highlight corresponding Truth Table Row
+                    // Switch clicked -> Record & Highlight Truth Table Row
                     recordAndHighlightTruthTableRow();
                 });
             }
@@ -738,8 +831,7 @@
         }
 
         /**
-         * RULE 1 & 3: Rebuild Truth Table Schema (Called on layout change)
-         * Resets all row outputs to unverified ("-")
+         * Rebuild Truth Table Schema strictly maintaining CREATION ORDER of nodes
          */
         function rebuildTruthTableSchema() {
             const inputNodes = state.nodes.filter(n => n.type === 'input');
@@ -771,34 +863,28 @@
                 }
                 rows.push({
                     inputPattern: pattern,
-                    outputValues: null, // "-" unverified initial status
+                    outputValues: null,
                     tested: false
                 });
             }
 
             state.truthTable.rows = rows;
-
-            // Immediately record current initial state into table
             recordAndHighlightTruthTableRow();
         }
 
         /**
-         * RULE 2: Record and Highlight current state in Truth Table
+         * Record and Highlight current state in Truth Table
          */
         function recordAndHighlightTruthTableRow() {
             const { inputs, outputs, rows } = state.truthTable;
             if (inputs.length === 0 || outputs.length === 0 || rows.length === 0) return;
 
-            // Current input combination
             const currentInputs = inputs.map(n => n.state.value);
-
-            // Find matching row index
             const targetIndex = rows.findIndex(row => 
                 row.inputPattern.every((val, idx) => val === currentInputs[idx])
             );
 
             if (targetIndex !== -1) {
-                // Record current output values for this row
                 const currentOutputs = outputs.map(n => n.state.value);
                 rows[targetIndex].outputValues = currentOutputs;
                 rows[targetIndex].tested = true;
@@ -817,7 +903,6 @@
             const savedInputs = inputs.map(n => n.state.value);
 
             rows.forEach(row => {
-                // Set input values
                 inputs.forEach((node, idx) => {
                     node.state.value = row.inputPattern[idx];
                 });
@@ -828,7 +913,6 @@
                 row.tested = true;
             });
 
-            // Restore original switch states
             inputs.forEach((node, idx) => {
                 node.state.value = savedInputs[idx];
             });
@@ -836,6 +920,80 @@
             renderNodes();
 
             recordAndHighlightTruthTableRow();
+        }
+
+        /**
+         * Save Circuit State to JSON File
+         */
+        function saveCircuit() {
+            const saveData = {
+                version: "1.0",
+                timestamp: new Date().toISOString(),
+                nextId: state.nextId,
+                nodes: state.nodes,
+                wires: state.wires
+            };
+
+            const jsonStr = JSON.stringify(saveData, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const dateStr = new Date().toISOString().slice(0, 10);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `logic_circuit_${dateStr}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        /**
+         * Load Circuit State from JSON File
+         */
+        function loadCircuit(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!data.nodes || !Array.isArray(data.nodes) || !data.wires || !Array.isArray(data.wires)) {
+                        alert("無効な回路図ファイルフォーマットです。");
+                        return;
+                    }
+
+                    // Restore state
+                    state.nodes = data.nodes;
+                    state.wires = data.wires;
+                    
+                    // Recover next ID counter to prevent collisions
+                    if (data.nextId) {
+                        state.nextId = data.nextId;
+                    } else {
+                        const maxNodeId = Math.max(0, ...state.nodes.map(n => parseInt(n.id.replace('node_', '')) || 0));
+                        const maxWireId = Math.max(0, ...state.wires.map(w => parseInt(w.id.replace('wire_', '')) || 0));
+                        state.nextId = Math.max(maxNodeId, maxWireId) + 1;
+                    }
+
+                    state.selectedNodeId = null;
+                    state.selectedWireId = null;
+                    state.connecting = null;
+
+                    // Re-render & Evaluate
+                    renderNodes();
+                    renderWires();
+                    evaluateCircuit();
+                    updateEmptyHint();
+                    rebuildTruthTableSchema();
+
+                } catch (err) {
+                    alert("ファイルの読み込み中にエラーが発生しました:\n" + err.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Clear selection to allow re-loading same file if needed
         }
 
         /**
@@ -866,12 +1024,12 @@
             ttStatusBadge.innerText = `検証済み: ${testedCount} / ${rows.length} 行 (${progressPercent}%)`;
 
             let html = `
-                <table id="tt-table-el" class="w-auto min-w-[280px] text-center text-xs font-mono border-collapse select-text">
+                <table id="tt-table-el" class="w-auto min-w-[280px] text-center ${state.truthTable.fontSizeClass} font-mono border-collapse select-text">
                     <thead>
                         <tr class="bg-slate-900 sticky top-0 text-slate-300 border-b border-slate-800">
                             <th class="py-1.5 px-2 text-slate-500 font-normal border-r border-slate-800/80 w-10">#</th>
-                            ${inputs.map(n => `<th class="py-1.5 px-3 text-cyan-400 font-bold border-r border-slate-800/80">${n.label}</th>`).join('')}
-                            ${outputs.map(n => `<th class="py-1.5 px-3 text-emerald-400 font-bold border-r border-slate-800/80 last:border-r-0">${n.label}</th>`).join('')}
+                            ${inputs.map(n => `<th class="py-1.5 px-3 text-cyan-400 font-bold border-r border-slate-800/80" title="作成順に固定されています">${n.label}</th>`).join('')}
+                            ${outputs.map(n => `<th class="py-1.5 px-3 text-emerald-400 font-bold border-r border-slate-800/80 last:border-r-0" title="作成順に固定されています">${n.label}</th>`).join('')}
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-800/60">
@@ -905,7 +1063,6 @@
             html += `</tbody></table>`;
             ttContainer.innerHTML = html;
 
-            // Auto scroll active row into view if active
             if (activeRowIndex !== -1) {
                 const activeEl = document.getElementById(`tt-row-${activeRowIndex}`);
                 if (activeEl) {
@@ -925,12 +1082,16 @@
         function setupEventListeners() {
             window.addEventListener('mousemove', (e) => {
                 const rect = canvasContainer.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                const mouseY = e.clientY - rect.top;
+                const mouseX = e.clientX - rect.left + canvasContainer.scrollLeft;
+                const mouseY = e.clientY - rect.top + canvasContainer.scrollTop;
 
                 if (state.draggingNode) {
-                    state.draggingNode.x = Math.max(0, Math.min(rect.width - 100, e.clientX - state.dragOffset.x));
-                    state.draggingNode.y = Math.max(0, Math.min(rect.height - 60, e.clientY - state.dragOffset.y));
+                    const canvasInner = document.getElementById('canvas-inner');
+                    const maxX = Math.max(rect.width, canvasInner.scrollWidth) - 100;
+                    const maxY = Math.max(rect.height, canvasInner.scrollHeight) - 60;
+
+                    state.draggingNode.x = Math.max(0, Math.min(maxX, e.clientX + canvasContainer.scrollLeft - state.dragOffset.x));
+                    state.draggingNode.y = Math.max(0, Math.min(maxY, e.clientY + canvasContainer.scrollTop - state.dragOffset.y));
                     renderNodes();
                 }
 
@@ -946,8 +1107,8 @@
 
                 if (state.connecting) {
                     const rect = canvasContainer.getBoundingClientRect();
-                    const mouseX = e.clientX - rect.left;
-                    const mouseY = e.clientY - rect.top;
+                    const mouseX = e.clientX - rect.left + canvasContainer.scrollLeft;
+                    const mouseY = e.clientY - rect.top + canvasContainer.scrollTop;
 
                     const elemUnderCursor = document.elementFromPoint(e.clientX, e.clientY);
                     const targetPin = elemUnderCursor ? elemUnderCursor.closest('.input-pin') : null;
@@ -970,8 +1131,6 @@
 
                             evaluateCircuit();
                             renderNodes();
-
-                            // RULE 1: Wire structure changed -> Reset & Rebuild Truth Table Schema
                             rebuildTruthTableSchema();
                         }
                         state.connecting = null;
@@ -981,8 +1140,6 @@
                             state.connecting = null;
                             evaluateCircuit();
                             renderNodes();
-
-                            // RULE 1: Wire unhooked in blank space -> Reset & Rebuild Truth Table Schema
                             rebuildTruthTableSchema();
                         }
                     }
@@ -1005,8 +1162,8 @@
                 const pinType = pin.dataset.pinType;
                 const pinIndex = parseInt(pin.dataset.pinIndex, 10);
                 const rect = canvasContainer.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                const mouseY = e.clientY - rect.top;
+                const mouseX = e.clientX - rect.left + canvasContainer.scrollLeft;
+                const mouseY = e.clientY - rect.top + canvasContainer.scrollTop;
 
                 if (pinType === 'output') {
                     state.connecting = {
@@ -1035,7 +1192,6 @@
                         }
                         state.connecting = null;
                     } else {
-                        // Unhook existing wire from input pin
                         const existingWire = state.wires.find(w => w.toNodeId === nodeId && w.toPinIndex === pinIndex);
                         if (existingWire) {
                             state.wires = state.wires.filter(w => w.id !== existingWire.id);
@@ -1079,6 +1235,13 @@
                 rebuildTruthTableSchema();
             });
 
+            // Save / Load Handlers
+            document.getElementById('btn-save').addEventListener('click', saveCircuit);
+            document.getElementById('btn-load').addEventListener('click', () => {
+                document.getElementById('file-input').click();
+            });
+            document.getElementById('file-input').addEventListener('change', loadCircuit);
+
             document.getElementById('btn-run-all-tt').addEventListener('click', runAllTruthTablePatterns);
             document.getElementById('btn-help').addEventListener('click', () => helpModal.classList.remove('hidden'));
             document.getElementById('close-help').addEventListener('click', () => helpModal.classList.add('hidden'));
@@ -1112,7 +1275,7 @@
                 const cols = row.querySelectorAll('th, td');
                 const rowData = [];
                 cols.forEach((col, idx) => {
-                    if (idx > 0) rowData.push(col.innerText.trim()); // Skip '#' index column
+                    if (idx > 0) rowData.push(col.innerText.trim());
                 });
                 csv.push(rowData.join(','));
             });
