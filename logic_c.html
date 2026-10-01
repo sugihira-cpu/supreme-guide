@@ -244,7 +244,7 @@
 
                 <!-- Wire Hint Footer -->
                 <div class="mt-auto pt-2 border-t border-slate-800 text-[10px] text-slate-400 space-y-0.5">
-                    <p>💡 <strong class="text-cyan-400">操作:</strong> ピン間ドラッグで配線 / ダブルクリックで名称変更 / スイッチクリックで検証</p>
+                    <p>💡 <strong class="text-cyan-400">操作:</strong> 範囲ドラッグで選択移動 / ピン間ドラッグで配線 / ダブルクリックで名称変更</p>
                 </div>
             </aside>
 
@@ -252,6 +252,9 @@
             <main id="canvas-container" class="flex-1 relative bg-canvasbg grid-bg overflow-auto cursor-crosshair">
                 <div id="canvas-inner" class="relative min-w-[900px] min-h-[600px] w-full h-full">
                     
+                    <!-- Selection Box Overlay for Drag Selection -->
+                    <div id="selection-box" class="absolute border border-cyan-400 bg-cyan-500/20 pointer-events-none hidden z-30"></div>
+
                     <!-- SVG Layer for Connections/Wires -->
                     <svg id="svg-wires" class="absolute inset-0 w-full h-full pointer-events-none z-0">
                         <!-- Dynamic wires render here -->
@@ -313,7 +316,7 @@
 
             <!-- Table Container (Scrollable) -->
             <div id="tt-container" class="flex-1 overflow-auto p-2 bg-slate-950/50">
-                <!-- Truth table dynamic render target -->
+                <!-- Truth table dynamic render target (Supports Multi-system horizontal split) -->
             </div>
         </section>
 
@@ -328,17 +331,12 @@
             </h3>
             
             <div class="space-y-2 text-xs leading-relaxed">
-                <p><strong class="text-cyan-400">1. パーツ配置:</strong> パレットからゲートやスイッチをドラッグ＆ドロップしてキャンバスに置きます。</p>
+                <p><strong class="text-cyan-400">1. パーツ配置・範囲選択:</strong> パレットからパーツをドラッグ＆ドロップで配置します。キャンバス上の空エリアをドラッグすると複数のパーツを範囲選択し、まとめて移動や一括削除（Deleteキー）できます。</p>
                 <p><strong class="text-cyan-400">2. ドラッグ配線:</strong> 出力ピン(右)をクリック＆ドラッグし、入力ピン(左)へ繋ぎます。</p>
                 <p><strong class="text-cyan-400">3. 名称の変更:</strong> ノードのラベル（A, B, OUT 1等）をダブルクリックすると名称変更が可能です。真理値表の列順は作成順に保持されます。</p>
                 <p><strong class="text-rose-400">4. 配線の切り離し・削除:</strong> 入力ピンからドラッグで配線を浮かせ、空中で離すと削除。配線直接クリックでも削除できます。</p>
                 <p><strong class="text-cyan-400">5. 保存・読み込み:</strong> 右上の「保存」ボタンで回路をファイルに保存、「読み込み」でいつでも読み込めます。</p>
-                <p><strong class="text-cyan-400">6. リアルタイム真理値表のルール:</strong></p>
-                <ul class="list-disc pl-4 space-y-1 text-slate-400">
-                    <li><strong class="text-slate-200">構成変更時:</strong> 回路を変更すると、全入力パターン（$2^N$行）の表が生成されます。</li>
-                    <li><strong class="text-slate-200">スイッチ操作時:</strong> 入力スイッチを切り替えると、該当行がシアン色にハイライトされ結果が更新されます。</li>
-                    <li><strong class="text-slate-200">一括検証:</strong> ヘッダーの「全パターン自動検証」を押すと瞬時に全行の出力が確認完了します。</li>
-                </ul>
+                <p><strong class="text-cyan-400">6. 複数回路の自動分割:</strong> 独立した回路系統（配線が繋がっていない別の回路）を複数作成した場合、真理値表が右側に分割して追加配置されます。</p>
             </div>
 
             <div class="pt-2 flex justify-end">
@@ -357,16 +355,27 @@
             wires: [],       // List of active wires
             nextId: 1,
             selectedNodeId: null,
+            selectedNodeIds: new Set(), // 複数選択中のノードIDの集合
             selectedWireId: null,
             connecting: null, // { fromNodeId, fromPinIndex, startPos, mousePos }
-            draggingNode: null,
-            dragOffset: { x: 0, y: 0 },
             
-            // Constant Truth Table State
+            // 複数（グループ）ドラッグ移動用
+            draggingGroup: false,
+            groupDragStartPositions: new Map(),
+            groupDragStartMouse: { x: 0, y: 0 },
+
+            // 範囲選択（ラバーバンド選択）用
+            selectionBox: {
+                active: false,
+                startX: 0,
+                startY: 0,
+                currentX: 0,
+                currentY: 0
+            },
+
+            // Constant Truth Table State (Supports Multi-Table Partitioning)
             truthTable: {
-                inputs: [],    // Array of Input node objects
-                outputs: [],   // Array of Output node objects
-                rows: [],      // Array of { inputPattern: [0,1], outputValues: [0,1]|null, tested: boolean }
+                tables: [],            // Array of sub-table objects: { id, title, inputs, outputs, rows, error }
                 panelCollapsed: false,
                 fontSizeClass: 'text-xs' // Default font size (Standard)
             }
@@ -490,10 +499,14 @@
                             }
                         });
 
-                        // Dynamic font size change for table element
-                        const tableEl = document.getElementById('tt-table-el');
-                        if (tableEl) {
-                            tableEl.className = `w-auto min-w-[280px] text-center ${state.truthTable.fontSizeClass} font-mono border-collapse select-text`;
+                        // Dynamic font size change for all table elements
+                        if (state.truthTable.tables) {
+                            state.truthTable.tables.forEach((_, tIdx) => {
+                                const tableEl = document.getElementById(`tt-table-el-${tIdx}`);
+                                if (tableEl) {
+                                    tableEl.className = `w-auto min-w-[200px] text-center ${state.truthTable.fontSizeClass} font-mono border-collapse select-text`;
+                                }
+                            });
                         }
                     });
                 }
@@ -541,6 +554,7 @@
             state.nodes = state.nodes.filter(n => n.id !== nodeId);
             state.wires = state.wires.filter(w => w.fromNodeId !== nodeId && w.toNodeId !== nodeId);
             if (state.selectedNodeId === nodeId) state.selectedNodeId = null;
+            state.selectedNodeIds.delete(nodeId);
             renderNodes();
             renderWires();
             evaluateCircuit();
@@ -571,8 +585,10 @@
                 const def = NODE_TYPES[node.type];
                 const el = document.createElement('div');
                 
+                const isSelected = state.selectedNodeIds.has(node.id) || state.selectedNodeId === node.id;
+
                 el.className = `node-element absolute rounded-xl bg-slate-900 border ${
-                    state.selectedNodeId === node.id ? 'border-cyan-400 ring-2 ring-cyan-400/30' : 'border-slate-700/80'
+                    isSelected ? 'border-cyan-400 ring-2 ring-cyan-400/30' : 'border-slate-700/80'
                 } shadow-xl flex flex-col pointer-events-auto transition-shadow hover:border-slate-500`;
                 
                 el.style.left = `${node.x}px`;
@@ -679,6 +695,19 @@
         function setupNodeEvents(el, node) {
             el.addEventListener('mousedown', (e) => {
                 if (e.target.closest('.pin-node') || e.target.closest('.btn-toggle') || e.target.closest('.node-label')) return;
+                
+                // ShiftやCtrlが押されていない場合で、未選択ノードなら単一選択にする
+                if (!e.shiftKey && !e.ctrlKey && !state.selectedNodeIds.has(node.id)) {
+                    state.selectedNodeIds.clear();
+                    state.selectedNodeIds.add(node.id);
+                } else if (e.shiftKey || e.ctrlKey) {
+                    if (state.selectedNodeIds.has(node.id)) {
+                        state.selectedNodeIds.delete(node.id);
+                    } else {
+                        state.selectedNodeIds.add(node.id);
+                    }
+                }
+                
                 state.selectedNodeId = node.id;
                 state.selectedWireId = null;
                 renderNodes();
@@ -688,11 +717,32 @@
             const header = el.querySelector('.node-header');
             header.addEventListener('mousedown', (e) => {
                 e.stopPropagation();
-                state.draggingNode = node;
-                state.dragOffset = {
-                    x: e.clientX + canvasContainer.scrollLeft - node.x,
-                    y: e.clientY + canvasContainer.scrollTop - node.y
-                };
+                
+                // ドラッグ開始時、クリックされたノードが選択に含まれていなければ選択更新
+                if (!state.selectedNodeIds.has(node.id)) {
+                    if (!e.shiftKey && !e.ctrlKey) {
+                        state.selectedNodeIds.clear();
+                    }
+                    state.selectedNodeIds.add(node.id);
+                    state.selectedNodeId = node.id;
+                    renderNodes();
+                }
+
+                // グループ移動のセットアップ
+                state.draggingGroup = true;
+                const rect = canvasContainer.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left + canvasContainer.scrollLeft;
+                const mouseY = e.clientY - rect.top + canvasContainer.scrollTop;
+
+                state.groupDragStartMouse = { x: mouseX, y: mouseY };
+                state.groupDragStartPositions.clear();
+
+                state.selectedNodeIds.forEach(id => {
+                    const n = state.nodes.find(item => item.id === id);
+                    if (n) {
+                        state.groupDragStartPositions.set(n.id, { x: n.x, y: n.y });
+                    }
+                });
             });
 
             const btnDelete = el.querySelector('.btn-delete');
@@ -831,90 +881,189 @@
         }
 
         /**
-         * Rebuild Truth Table Schema strictly maintaining CREATION ORDER of nodes
+         * Helper: Extract connected components (Independent Circuit Graphs)
+         */
+        function getConnectedComponents() {
+            const nodes = state.nodes;
+            if (nodes.length === 0) return [];
+
+            const adj = new Map();
+            nodes.forEach(n => adj.set(n.id, []));
+
+            state.wires.forEach(w => {
+                if (adj.has(w.fromNodeId) && adj.has(w.toNodeId)) {
+                    adj.get(w.fromNodeId).push(w.toNodeId);
+                    adj.get(w.toNodeId).push(w.fromNodeId);
+                }
+            });
+
+            const visited = new Set();
+            const components = [];
+
+            nodes.forEach(node => {
+                if (!visited.has(node.id)) {
+                    const compNodes = [];
+                    const queue = [node.id];
+                    visited.add(node.id);
+
+                    while (queue.length > 0) {
+                        const currId = queue.shift();
+                        const currNode = nodes.find(n => n.id === currId);
+                        if (currNode) compNodes.push(currNode);
+
+                        const neighbors = adj.get(currId) || [];
+                        neighbors.forEach(neighborId => {
+                            if (!visited.has(neighborId)) {
+                                visited.add(neighborId);
+                                queue.push(neighborId);
+                            }
+                        });
+                    }
+                    components.push(compNodes);
+                }
+            });
+
+            return components;
+        }
+
+        /**
+         * Rebuild Truth Table Schema with Automatic Sub-circuit Partitioning
          */
         function rebuildTruthTableSchema() {
-            const inputNodes = state.nodes.filter(n => n.type === 'input');
-            const outputNodes = state.nodes.filter(n => n.type === 'output');
+            const allInputs = state.nodes.filter(n => n.type === 'input');
+            const allOutputs = state.nodes.filter(n => n.type === 'output');
 
-            state.truthTable.inputs = inputNodes;
-            state.truthTable.outputs = outputNodes;
-
-            if (inputNodes.length === 0 || outputNodes.length === 0) {
-                state.truthTable.rows = [];
+            if (allInputs.length === 0 || allOutputs.length === 0) {
+                state.truthTable.tables = [];
                 renderTruthTableUI();
                 return;
             }
 
-            if (inputNodes.length > 8) {
-                state.truthTable.rows = [];
-                renderTruthTableUI("入力ノード数が多すぎます（最大 8 個）");
-                return;
-            }
+            // Extract graph connected components
+            const components = getConnectedComponents();
 
-            const numRows = Math.pow(2, inputNodes.length);
-            const rows = [];
+            // Find valid systems that contain both input and output nodes
+            const validSystems = [];
+            components.forEach(comp => {
+                const inputs = comp.filter(n => n.type === 'input').sort((a, b) => state.nodes.indexOf(a) - state.nodes.indexOf(b));
+                const outputs = comp.filter(n => n.type === 'output').sort((a, b) => state.nodes.indexOf(a) - state.nodes.indexOf(b));
 
-            for (let i = 0; i < numRows; i++) {
-                const pattern = [];
-                for (let j = 0; j < inputNodes.length; j++) {
-                    const bit = (i >> (inputNodes.length - 1 - j)) & 1;
-                    pattern.push(bit);
+                if (inputs.length > 0 && outputs.length > 0) {
+                    validSystems.push({ inputs, outputs });
                 }
-                rows.push({
-                    inputPattern: pattern,
-                    outputValues: null,
-                    tested: false
-                });
+            });
+
+            // RULE: If there are 2 or more distinct connected systems, split truth table!
+            let systemGroups = [];
+            if (validSystems.length >= 2) {
+                systemGroups = validSystems;
+            } else {
+                // Otherwise (during construction/single system), aggregate as 1 combined table
+                systemGroups = [{ inputs: allInputs, outputs: allOutputs }];
             }
 
-            state.truthTable.rows = rows;
+            state.truthTable.tables = systemGroups.map((group, groupIdx) => {
+                const { inputs, outputs } = group;
+
+                if (inputs.length > 8) {
+                    return {
+                        id: `table_${groupIdx}`,
+                        title: systemGroups.length > 1 ? `系統 ${groupIdx + 1}` : null,
+                        inputs,
+                        outputs,
+                        rows: [],
+                        error: "入力ノード数が多すぎます（最大 8 個）"
+                    };
+                }
+
+                const numRows = Math.pow(2, inputs.length);
+                const rows = [];
+
+                for (let i = 0; i < numRows; i++) {
+                    const pattern = [];
+                    for (let j = 0; j < inputs.length; j++) {
+                        const bit = (i >> (inputs.length - 1 - j)) & 1;
+                        pattern.push(bit);
+                    }
+                    rows.push({
+                        inputPattern: pattern,
+                        outputValues: null,
+                        tested: false
+                    });
+                }
+
+                return {
+                    id: `table_${groupIdx}`,
+                    title: systemGroups.length > 1 ? `系統 ${groupIdx + 1}` : null,
+                    inputs,
+                    outputs,
+                    rows,
+                    error: null
+                };
+            });
+
             recordAndHighlightTruthTableRow();
         }
 
         /**
-         * Record and Highlight current state in Truth Table
+         * Record and Highlight current state across all Truth Tables
          */
         function recordAndHighlightTruthTableRow() {
-            const { inputs, outputs, rows } = state.truthTable;
-            if (inputs.length === 0 || outputs.length === 0 || rows.length === 0) return;
+            const tables = state.truthTable.tables;
+            if (!tables || tables.length === 0) return;
 
-            const currentInputs = inputs.map(n => n.state.value);
-            const targetIndex = rows.findIndex(row => 
-                row.inputPattern.every((val, idx) => val === currentInputs[idx])
-            );
+            const activeRowIndices = [];
 
-            if (targetIndex !== -1) {
-                const currentOutputs = outputs.map(n => n.state.value);
-                rows[targetIndex].outputValues = currentOutputs;
-                rows[targetIndex].tested = true;
-            }
+            tables.forEach(tbl => {
+                if (tbl.error || !tbl.inputs || tbl.inputs.length === 0 || !tbl.outputs || tbl.outputs.length === 0 || !tbl.rows || tbl.rows.length === 0) {
+                    activeRowIndices.push(-1);
+                    return;
+                }
 
-            renderTruthTableUI(null, targetIndex);
+                const currentInputs = tbl.inputs.map(n => n.state.value);
+                const targetIndex = tbl.rows.findIndex(row => 
+                    row.inputPattern.every((val, idx) => val === currentInputs[idx])
+                );
+
+                if (targetIndex !== -1) {
+                    const currentOutputs = tbl.outputs.map(n => n.state.value);
+                    tbl.rows[targetIndex].outputValues = currentOutputs;
+                    tbl.rows[targetIndex].tested = true;
+                }
+
+                activeRowIndices.push(targetIndex);
+            });
+
+            renderTruthTableUI(activeRowIndices);
         }
 
         /**
-         * Action: Automated full circuit testing
+         * Action: Automated full circuit testing across all sub-tables
          */
         function runAllTruthTablePatterns() {
-            const { inputs, outputs, rows } = state.truthTable;
-            if (inputs.length === 0 || outputs.length === 0) return;
+            const tables = state.truthTable.tables;
+            if (!tables || tables.length === 0) return;
 
-            const savedInputs = inputs.map(n => n.state.value);
+            const allInputs = state.nodes.filter(n => n.type === 'input');
+            const savedInputs = allInputs.map(n => ({ node: n, val: n.state.value }));
 
-            rows.forEach(row => {
-                inputs.forEach((node, idx) => {
-                    node.state.value = row.inputPattern[idx];
+            tables.forEach(tbl => {
+                if (tbl.error || !tbl.inputs || !tbl.outputs || !tbl.rows) return;
+
+                tbl.rows.forEach(row => {
+                    tbl.inputs.forEach((node, idx) => {
+                        node.state.value = row.inputPattern[idx];
+                    });
+
+                    evaluateCircuit();
+
+                    row.outputValues = tbl.outputs.map(n => n.state.value);
+                    row.tested = true;
                 });
-
-                evaluateCircuit();
-
-                row.outputValues = outputs.map(n => n.state.value);
-                row.tested = true;
             });
 
-            inputs.forEach((node, idx) => {
-                node.state.value = savedInputs[idx];
+            savedInputs.forEach(item => {
+                item.node.state.value = item.val;
             });
             evaluateCircuit();
             renderNodes();
@@ -968,7 +1117,6 @@
                     state.nodes = data.nodes;
                     state.wires = data.wires;
                     
-                    // Recover next ID counter to prevent collisions
                     if (data.nextId) {
                         state.nextId = data.nextId;
                     } else {
@@ -978,6 +1126,7 @@
                     }
 
                     state.selectedNodeId = null;
+                    state.selectedNodeIds.clear();
                     state.selectedWireId = null;
                     state.connecting = null;
 
@@ -993,22 +1142,16 @@
                 }
             };
             reader.readAsText(file);
-            event.target.value = ''; // Clear selection to allow re-loading same file if needed
+            event.target.value = '';
         }
 
         /**
-         * Render Bottom Truth Table UI
+         * Render Bottom Truth Table UI (Horizontally appending partitioned systems)
          */
-        function renderTruthTableUI(errorMsg = null, activeRowIndex = -1) {
-            const { inputs, outputs, rows } = state.truthTable;
+        function renderTruthTableUI(activeRowIndices = []) {
+            const tables = state.truthTable.tables;
 
-            if (errorMsg) {
-                ttContainer.innerHTML = `<div class="text-center py-6 text-amber-400 text-xs font-semibold">${errorMsg}</div>`;
-                ttStatusBadge.innerText = "エラー";
-                return;
-            }
-
-            if (inputs.length === 0 || outputs.length === 0) {
+            if (!tables || tables.length === 0) {
                 ttContainer.innerHTML = `
                     <div class="h-full flex flex-col items-center justify-center text-slate-500 text-xs gap-1 py-4">
                         <svg class="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -1019,56 +1162,104 @@
                 return;
             }
 
-            const testedCount = rows.filter(r => r.tested).length;
-            const progressPercent = Math.round((testedCount / rows.length) * 100);
-            ttStatusBadge.innerText = `検証済み: ${testedCount} / ${rows.length} 行 (${progressPercent}%)`;
+            let totalTested = 0;
+            let totalRows = 0;
 
-            let html = `
-                <table id="tt-table-el" class="w-auto min-w-[280px] text-center ${state.truthTable.fontSizeClass} font-mono border-collapse select-text">
-                    <thead>
-                        <tr class="bg-slate-900 sticky top-0 text-slate-300 border-b border-slate-800">
-                            <th class="py-1.5 px-2 text-slate-500 font-normal border-r border-slate-800/80 w-10">#</th>
-                            ${inputs.map(n => `<th class="py-1.5 px-3 text-cyan-400 font-bold border-r border-slate-800/80" title="作成順に固定されています">${n.label}</th>`).join('')}
-                            ${outputs.map(n => `<th class="py-1.5 px-3 text-emerald-400 font-bold border-r border-slate-800/80 last:border-r-0" title="作成順に固定されています">${n.label}</th>`).join('')}
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-800/60">
-            `;
-
-            rows.forEach((row, rIdx) => {
-                const isActive = rIdx === activeRowIndex;
-                const rowClass = isActive ? 'active-tt-row' : 'hover:bg-slate-800/30';
-
-                html += `<tr id="tt-row-${rIdx}" class="transition-colors ${rowClass}">`;
-                html += `<td class="py-1 px-2 text-slate-600 border-r border-slate-800/60">${rIdx + 1}</td>`;
-
-                // Inputs
-                row.inputPattern.forEach(val => {
-                    html += `<td class="py-1 px-3 border-r border-slate-800/60 ${val === 1 ? 'text-cyan-400 font-bold' : 'text-slate-500'}">${val}</td>`;
-                });
-
-                // Outputs
-                outputs.forEach((_, oIdx) => {
-                    if (row.outputValues !== null) {
-                        const outVal = row.outputValues[oIdx];
-                        html += `<td class="py-1 px-3 border-r border-slate-800/60 last:border-r-0 ${outVal === 1 ? 'text-emerald-400 font-bold bg-emerald-950/20' : 'text-slate-400'}">${outVal}</td>`;
-                    } else {
-                        html += `<td class="py-1 px-3 border-r border-slate-800/60 last:border-r-0 text-slate-600 font-bold">-</td>`;
-                    }
-                });
-
-                html += `</tr>`;
+            tables.forEach(t => {
+                if (t.rows) {
+                    totalRows += t.rows.length;
+                    totalTested += t.rows.filter(r => r.tested).length;
+                }
             });
 
-            html += `</tbody></table>`;
+            const progressPercent = totalRows > 0 ? Math.round((totalTested / totalRows) * 100) : 0;
+            
+            if (tables.length > 1) {
+                ttStatusBadge.innerText = `分割表示: ${tables.length} 系統 (${progressPercent}% 検証済み)`;
+            } else {
+                ttStatusBadge.innerText = `検証済み: ${totalTested} / ${totalRows} 行 (${progressPercent}%)`;
+            }
+
+            let html = `<div class="flex flex-row gap-5 items-start h-full min-w-full pb-1">`;
+
+            tables.forEach((tbl, tIdx) => {
+                const activeRowIndex = activeRowIndices[tIdx] !== undefined ? activeRowIndices[tIdx] : -1;
+
+                html += `<div class="flex flex-col bg-slate-900/80 rounded-lg border border-slate-800 p-2 shrink-0 shadow-md">`;
+
+                if (tbl.title) {
+                    const inputNames = tbl.inputs.map(n => n.label).join(', ');
+                    const outputNames = tbl.outputs.map(n => n.label).join(', ');
+                    html += `
+                        <div class="text-[11px] font-bold text-cyan-400 mb-1.5 pb-1 border-b border-slate-800 flex items-center justify-between gap-3">
+                            <span class="flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                                ${tbl.title}
+                            </span>
+                            <span class="text-[10px] text-slate-400 font-mono font-normal">(${inputNames} → ${outputNames})</span>
+                        </div>
+                    `;
+                }
+
+                if (tbl.error) {
+                    html += `<div class="text-center py-4 text-amber-400 text-xs font-semibold px-4">${tbl.error}</div>`;
+                } else {
+                    html += `
+                        <table id="tt-table-el-${tIdx}" class="w-auto min-w-[200px] text-center ${state.truthTable.fontSizeClass} font-mono border-collapse select-text">
+                            <thead>
+                                <tr class="bg-slate-900 sticky top-0 text-slate-300 border-b border-slate-800">
+                                    <th class="py-1 px-2 text-slate-500 font-normal border-r border-slate-800/80 w-8">#</th>
+                                    ${tbl.inputs.map(n => `<th class="py-1 px-2.5 text-cyan-400 font-bold border-r border-slate-800/80" title="作成順">${n.label}</th>`).join('')}
+                                    ${tbl.outputs.map(n => `<th class="py-1 px-2.5 text-emerald-400 font-bold border-r border-slate-800/80 last:border-r-0" title="作成順">${n.label}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/60">
+                    `;
+
+                    tbl.rows.forEach((row, rIdx) => {
+                        const isActive = rIdx === activeRowIndex;
+                        const rowClass = isActive ? 'active-tt-row' : 'hover:bg-slate-800/30';
+
+                        html += `<tr id="tt-row-${tIdx}-${rIdx}" class="transition-colors ${rowClass}">`;
+                        html += `<td class="py-1 px-2 text-slate-600 border-r border-slate-800/60">${rIdx + 1}</td>`;
+
+                        // Inputs
+                        row.inputPattern.forEach(val => {
+                            html += `<td class="py-1 px-2.5 border-r border-slate-800/60 ${val === 1 ? 'text-cyan-400 font-bold' : 'text-slate-500'}">${val}</td>`;
+                        });
+
+                        // Outputs
+                        tbl.outputs.forEach((_, oIdx) => {
+                            if (row.outputValues !== null) {
+                                const outVal = row.outputValues[oIdx];
+                                html += `<td class="py-1 px-2.5 border-r border-slate-800/60 last:border-r-0 ${outVal === 1 ? 'text-emerald-400 font-bold bg-emerald-950/20' : 'text-slate-400'}">${outVal}</td>`;
+                            } else {
+                                html += `<td class="py-1 px-2.5 border-r border-slate-800/60 last:border-r-0 text-slate-600 font-bold">-</td>`;
+                            }
+                        });
+
+                        html += `</tr>`;
+                    });
+
+                    html += `</tbody></table>`;
+                }
+
+                html += `</div>`; // Close card
+            });
+
+            html += `</div>`;
             ttContainer.innerHTML = html;
 
-            if (activeRowIndex !== -1) {
-                const activeEl = document.getElementById(`tt-row-${activeRowIndex}`);
-                if (activeEl) {
-                    activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            // Auto-scroll active row
+            tables.forEach((_, tIdx) => {
+                const activeRowIndex = activeRowIndices[tIdx];
+                if (activeRowIndex !== undefined && activeRowIndex !== -1) {
+                    const activeEl = document.getElementById(`tt-row-${tIdx}-${activeRowIndex}`);
+                    if (activeEl) {
+                        activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    }
                 }
-            }
+            });
         }
 
         function startSimulationLoop() {
@@ -1079,20 +1270,95 @@
             requestAnimationFrame(update);
         }
 
+        /* 範囲選択領域の表示更新 */
+        function updateSelectionBoxUI() {
+            const boxEl = document.getElementById('selection-box');
+            if (!boxEl) return;
+
+            if (!state.selectionBox.active) {
+                boxEl.classList.add('hidden');
+                return;
+            }
+
+            const x1 = Math.min(state.selectionBox.startX, state.selectionBox.currentX);
+            const y1 = Math.min(state.selectionBox.startY, state.selectionBox.currentY);
+            const width = Math.abs(state.selectionBox.currentX - state.selectionBox.startX);
+            const height = Math.abs(state.selectionBox.currentY - state.selectionBox.startY);
+
+            boxEl.style.left = `${x1}px`;
+            boxEl.style.top = `${y1}px`;
+            boxEl.style.width = `${width}px`;
+            boxEl.style.height = `${height}px`;
+            boxEl.classList.remove('hidden');
+        }
+
+        /* 範囲選択矩形に含まれるノードの判定と選択更新 */
+        function updateSelectionFromBox(isShiftOrCtrl = false) {
+            const x1 = Math.min(state.selectionBox.startX, state.selectionBox.currentX);
+            const y1 = Math.min(state.selectionBox.startY, state.selectionBox.currentY);
+            const x2 = Math.max(state.selectionBox.startX, state.selectionBox.currentX);
+            const y2 = Math.max(state.selectionBox.startY, state.selectionBox.currentY);
+
+            if (!isShiftOrCtrl) {
+                state.selectedNodeIds.clear();
+            }
+
+            state.nodes.forEach(node => {
+                const def = NODE_TYPES[node.type];
+                const nx1 = node.x;
+                const ny1 = node.y;
+                const nx2 = node.x + def.width;
+                const ny2 = node.y + def.height;
+
+                // 矩形の重なり判定 (AABB Overlap)
+                const overlap = !(nx2 < x1 || nx1 > x2 || ny2 < y1 || ny1 > y2);
+
+                if (overlap) {
+                    state.selectedNodeIds.add(node.id);
+                }
+            });
+
+            if (state.selectedNodeIds.size === 1) {
+                state.selectedNodeId = Array.from(state.selectedNodeIds)[0];
+            } else {
+                state.selectedNodeId = null;
+            }
+
+            renderNodes();
+        }
+
         function setupEventListeners() {
             window.addEventListener('mousemove', (e) => {
                 const rect = canvasContainer.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left + canvasContainer.scrollLeft;
                 const mouseY = e.clientY - rect.top + canvasContainer.scrollTop;
 
-                if (state.draggingNode) {
+                // 選択中の全ノードをまとめて移動
+                if (state.draggingGroup) {
+                    const deltaX = mouseX - state.groupDragStartMouse.x;
+                    const deltaY = mouseY - state.groupDragStartMouse.y;
+
                     const canvasInner = document.getElementById('canvas-inner');
                     const maxX = Math.max(rect.width, canvasInner.scrollWidth) - 100;
                     const maxY = Math.max(rect.height, canvasInner.scrollHeight) - 60;
 
-                    state.draggingNode.x = Math.max(0, Math.min(maxX, e.clientX + canvasContainer.scrollLeft - state.dragOffset.x));
-                    state.draggingNode.y = Math.max(0, Math.min(maxY, e.clientY + canvasContainer.scrollTop - state.dragOffset.y));
+                    state.selectedNodeIds.forEach(id => {
+                        const node = state.nodes.find(n => n.id === id);
+                        const startPos = state.groupDragStartPositions.get(id);
+                        if (node && startPos) {
+                            node.x = Math.max(0, Math.min(maxX, startPos.x + deltaX));
+                            node.y = Math.max(0, Math.min(maxY, startPos.y + deltaY));
+                        }
+                    });
                     renderNodes();
+                }
+
+                // 範囲選択枠の更新
+                if (state.selectionBox.active) {
+                    state.selectionBox.currentX = mouseX;
+                    state.selectionBox.currentY = mouseY;
+                    updateSelectionBoxUI();
+                    updateSelectionFromBox(e.shiftKey || e.ctrlKey);
                 }
 
                 if (state.connecting) {
@@ -1101,8 +1367,14 @@
             });
 
             window.addEventListener('mouseup', (e) => {
-                if (state.draggingNode) {
-                    state.draggingNode = null;
+                if (state.draggingGroup) {
+                    state.draggingGroup = false;
+                    state.groupDragStartPositions.clear();
+                }
+
+                if (state.selectionBox.active) {
+                    state.selectionBox.active = false;
+                    updateSelectionBoxUI();
                 }
 
                 if (state.connecting) {
@@ -1149,10 +1421,27 @@
             canvasContainer.addEventListener('mousedown', (e) => {
                 const pin = e.target.closest('.pin-node');
                 if (!pin) {
+                    // ノードやワイヤー以外の空エリアでmousedownした場合、範囲選択を開始
                     if (!e.target.closest('.node-element') && !e.target.closest('.wire-group')) {
-                        state.selectedNodeId = null;
-                        state.selectedWireId = null;
-                        renderNodes();
+                        if (!e.shiftKey && !e.ctrlKey) {
+                            state.selectedNodeIds.clear();
+                            state.selectedNodeId = null;
+                            state.selectedWireId = null;
+                            renderNodes();
+                        }
+
+                        const rect = canvasContainer.getBoundingClientRect();
+                        const mouseX = e.clientX - rect.left + canvasContainer.scrollLeft;
+                        const mouseY = e.clientY - rect.top + canvasContainer.scrollTop;
+
+                        state.selectionBox = {
+                            active: true,
+                            startX: mouseX,
+                            startY: mouseY,
+                            currentX: mouseX,
+                            currentY: mouseY
+                        };
+                        updateSelectionBoxUI();
                     }
                     return;
                 }
@@ -1212,13 +1501,22 @@
 
             window.addEventListener('keydown', (e) => {
                 if (e.key === 'Delete' || e.key === 'Backspace') {
-                    if (state.selectedNodeId) {
+                    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+
+                    if (state.selectedNodeIds.size > 0) {
+                        const idsToDelete = Array.from(state.selectedNodeIds);
+                        idsToDelete.forEach(id => deleteNode(id));
+                        state.selectedNodeIds.clear();
+                        state.selectedNodeId = null;
+                    } else if (state.selectedNodeId) {
                         deleteNode(state.selectedNodeId);
                     } else if (state.selectedWireId) {
                         deleteWire(state.selectedWireId);
                     }
                 } else if (e.key === 'Escape') {
                     state.connecting = null;
+                    state.selectionBox.active = false;
+                    updateSelectionBoxUI();
                 }
             });
 
@@ -1227,6 +1525,7 @@
                 state.nodes = [];
                 state.wires = [];
                 state.selectedNodeId = null;
+                state.selectedNodeIds.clear();
                 state.selectedWireId = null;
                 state.connecting = null;
                 renderNodes();
@@ -1266,21 +1565,33 @@
         }
 
         function copyTruthTableCsv() {
-            const table = document.getElementById('tt-table-el');
-            if (!table) return;
+            const tables = state.truthTable.tables;
+            if (!tables || tables.length === 0) return;
 
-            let csv = [];
-            const rows = table.querySelectorAll('tr');
-            rows.forEach(row => {
-                const cols = row.querySelectorAll('th, td');
-                const rowData = [];
-                cols.forEach((col, idx) => {
-                    if (idx > 0) rowData.push(col.innerText.trim());
+            let csvLines = [];
+
+            tables.forEach((tbl, tIdx) => {
+                const tableEl = document.getElementById(`tt-table-el-${tIdx}`);
+                if (!tableEl) return;
+
+                if (tbl.title) {
+                    csvLines.push(`--- ${tbl.title} (${tbl.inputs.map(n => n.label).join(', ')} -> ${tbl.outputs.map(n => n.label).join(', ')}) ---`);
+                }
+
+                const rows = tableEl.querySelectorAll('tr');
+                rows.forEach(row => {
+                    const cols = row.querySelectorAll('th, td');
+                    const rowData = [];
+                    cols.forEach((col, idx) => {
+                        if (idx > 0) rowData.push(col.innerText.trim());
+                    });
+                    csvLines.push(rowData.join(','));
                 });
-                csv.push(rowData.join(','));
+
+                csvLines.push('');
             });
 
-            const csvString = csv.join('\n');
+            const csvString = csvLines.join('\n').trim();
             const textarea = document.createElement('textarea');
             textarea.value = csvString;
             document.body.appendChild(textarea);
