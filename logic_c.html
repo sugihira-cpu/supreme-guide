@@ -2,7 +2,7 @@
 <html lang="ja" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>LogicCraft - 論理回路シミュレータ</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -23,6 +23,13 @@
         }
     </script>
     <style>
+        /* タッチ・ペン操作時の不要なスクロールや拡大を防止 */
+        html, body, #canvas-container, .node-element, .pin-node, .palette-item, #resizer {
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
         /* Canvas grid background */
         .grid-bg {
             background-image: 
@@ -83,7 +90,7 @@
         .pin-node {
             transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
-        .pin-node:hover {
+        .pin-node:hover, .pin-node:active {
             transform: scale(1.4);
             box-shadow: 0 0 8px #38bdf8;
         }
@@ -124,12 +131,12 @@
             <div>
                 <h1 class="font-bold text-sm tracking-wide bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent flex items-center gap-2">
                     LogicCraft
-                    <span class="text-[10px] bg-cyan-950 text-cyan-400 border border-cyan-800/80 px-1.5 py-0.5 rounded font-normal">リアルタイム真理値表連動</span>
+                    <span class="text-[10px] bg-cyan-950 text-cyan-400 border border-cyan-800/80 px-1.5 py-0.5 rounded font-normal">タッチ・ペン対応</span>
                 </h1>
             </div>
         </div>
 
-        <!-- Action Toolbar (右上操作エリア) -->
+        <!-- Action Toolbar -->
         <div class="flex items-center gap-2">
             <button id="btn-run-all-tt" class="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-semibold rounded-md shadow transition">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -138,12 +145,11 @@
 
             <div class="h-4 w-px bg-slate-800 mx-1"></div>
 
-            <!-- 回路図 保存・読み込み ボタン -->
-            <button id="btn-save" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs rounded-md transition flex items-center gap-1" title="回路図をファイル(JSON)に保存">
+            <button id="btn-save" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs rounded-md transition flex items-center gap-1" title="回路図を保存">
                 <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
                 保存
             </button>
-            <button id="btn-load" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs rounded-md transition flex items-center gap-1" title="保存した回路図(JSON)を読み込み">
+            <button id="btn-load" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs rounded-md transition flex items-center gap-1" title="保存した回路図を読み込み">
                 <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                 読み込み
             </button>
@@ -170,12 +176,12 @@
             <!-- Left Palette Sidebar -->
             <aside class="w-56 bg-slate-900 border-r border-slate-800 flex flex-col p-2.5 z-10 shrink-0 select-none">
                 <h2 class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 px-1">パーツパレット</h2>
-                <p class="text-[10px] text-slate-500 mb-2 px-1">ドラッグ＆ドロップで追加</p>
+                <p class="text-[10px] text-slate-500 mb-2 px-1">ドラッグまたはタップで配置</p>
 
                 <div class="space-y-2 overflow-y-auto flex-1 pr-0.5" id="palette-list">
 
                     <!-- Input Item -->
-                    <div class="palette-item bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 hover:border-cyan-500/50 p-1.5 rounded-lg cursor-grab active:cursor-grabbing flex items-center gap-2.5 transition group" draggable="true" data-type="input">
+                    <div class="palette-item bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 hover:border-cyan-500/50 p-1.5 rounded-lg cursor-grab active:cursor-grabbing flex items-center gap-2.5 transition group" data-type="input">
                         <div class="w-8 h-8 rounded bg-cyan-950/80 border border-cyan-500/30 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition font-mono font-bold text-xs">
                             0/1
                         </div>
@@ -186,7 +192,7 @@
                     </div>
 
                     <!-- Output Item -->
-                    <div class="palette-item bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 hover:border-emerald-500/50 p-1.5 rounded-lg cursor-grab active:cursor-grabbing flex items-center gap-2.5 transition group" draggable="true" data-type="output">
+                    <div class="palette-item bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 hover:border-emerald-500/50 p-1.5 rounded-lg cursor-grab active:cursor-grabbing flex items-center gap-2.5 transition group" data-type="output">
                         <div class="w-8 h-8 rounded bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition">
                             <div class="w-4 h-4 rounded-full bg-emerald-500/30 border border-emerald-400 flex items-center justify-center font-mono text-[9px] font-bold">
                                 LED
@@ -201,7 +207,7 @@
                     <div class="my-1 border-t border-slate-800"></div>
 
                     <!-- AND Gate Item -->
-                    <div class="palette-item bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 hover:border-blue-500/50 p-1.5 rounded-lg cursor-grab active:cursor-grabbing flex items-center gap-2.5 transition group" draggable="true" data-type="and">
+                    <div class="palette-item bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 hover:border-blue-500/50 p-1.5 rounded-lg cursor-grab active:cursor-grabbing flex items-center gap-2.5 transition group" data-type="and">
                         <div class="w-8 h-8 rounded bg-slate-900 border border-slate-700 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition">
                             <svg class="w-6 h-6" viewBox="0 0 40 30" fill="none">
                                 <path d="M 6,5 L 18,5 C 28,5 28,25 18,25 L 6,25 Z" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
@@ -214,7 +220,7 @@
                     </div>
 
                     <!-- OR Gate Item -->
-                    <div class="palette-item bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 hover:border-indigo-500/50 p-1.5 rounded-lg cursor-grab active:cursor-grabbing flex items-center gap-2.5 transition group" draggable="true" data-type="or">
+                    <div class="palette-item bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 hover:border-indigo-500/50 p-1.5 rounded-lg cursor-grab active:cursor-grabbing flex items-center gap-2.5 transition group" data-type="or">
                         <div class="w-8 h-8 rounded bg-slate-900 border border-slate-700 flex items-center justify-center text-indigo-400 group-hover:scale-105 transition">
                             <svg class="w-6 h-6" viewBox="0 0 40 30" fill="none">
                                 <path d="M 6,5 C 13,11 13,19 6,25 C 18,25 28,20 34,15 C 28,10 18,5 6,5 Z" fill="#0f172a" stroke="#818cf8" stroke-width="2"/>
@@ -227,7 +233,7 @@
                     </div>
 
                     <!-- NOT Gate Item -->
-                    <div class="palette-item bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 hover:border-purple-500/50 p-1.5 rounded-lg cursor-grab active:cursor-grabbing flex items-center gap-2.5 transition group" draggable="true" data-type="not">
+                    <div class="palette-item bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 hover:border-purple-500/50 p-1.5 rounded-lg cursor-grab active:cursor-grabbing flex items-center gap-2.5 transition group" data-type="not">
                         <div class="w-8 h-8 rounded bg-slate-900 border border-slate-700 flex items-center justify-center text-purple-400 group-hover:scale-105 transition">
                             <svg class="w-6 h-6" viewBox="0 0 40 30" fill="none">
                                 <path d="M 6,5 L 24,15 L 6,25 Z" fill="#0f172a" stroke="#c084fc" stroke-width="2"/>
@@ -244,7 +250,7 @@
 
                 <!-- Wire Hint Footer -->
                 <div class="mt-auto pt-2 border-t border-slate-800 text-[10px] text-slate-400 space-y-0.5">
-                    <p>💡 <strong class="text-cyan-400">操作:</strong> 範囲ドラッグで選択移動 / ピン間ドラッグで配線 / ダブルクリックで名称変更</p>
+                    <p>💡 <strong class="text-cyan-400">操作:</strong> タッチ/ペン対応。ドラッグで範囲選択・移動、ピン間スワイプで配線できます。</p>
                 </div>
             </aside>
 
@@ -270,7 +276,7 @@
                         <svg class="w-12 h-12 text-slate-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                         </svg>
-                        <p class="text-xs font-medium text-slate-400">パーツをパレットからドラッグして配置してください</p>
+                        <p class="text-xs font-medium text-slate-400">パーツをパレットからドラッグまたはタップして配置してください</p>
                     </div>
 
                 </div>
@@ -278,7 +284,7 @@
         </div>
 
         <!-- Draggable Resizer Bar -->
-        <div id="resizer" class="h-1.5 bg-slate-800 hover:bg-cyan-500 cursor-row-resize transition-colors z-30 shrink-0 border-t border-b border-slate-700/50"></div>
+        <div id="resizer" class="h-2 bg-slate-800 hover:bg-cyan-500 cursor-row-resize transition-colors z-30 shrink-0 border-t border-b border-slate-700/50"></div>
 
         <!-- Bottom Constant Truth Table Panel -->
         <section id="truth-table-panel" class="h-56 bg-slate-900 border-t border-slate-800 flex flex-col z-20 shrink-0 transition-none">
@@ -316,7 +322,7 @@
 
             <!-- Table Container (Scrollable) -->
             <div id="tt-container" class="flex-1 overflow-auto p-2 bg-slate-950/50">
-                <!-- Truth table dynamic render target (Supports Multi-system horizontal split) -->
+                <!-- Truth table dynamic render target -->
             </div>
         </section>
 
@@ -327,16 +333,15 @@
         <div class="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-full max-w-lg p-5 m-4 text-slate-300 space-y-3">
             <h3 class="text-base font-bold text-slate-100 flex items-center gap-2">
                 <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                LogicCraft の使い方とリアルタイム真理値表
+                LogicCraft の使い方（タッチ・ペン対応）
             </h3>
             
             <div class="space-y-2 text-xs leading-relaxed">
-                <p><strong class="text-cyan-400">1. パーツ配置・範囲選択:</strong> パレットからパーツをドラッグ＆ドロップで配置します。キャンバス上の空エリアをドラッグすると複数のパーツを範囲選択し、まとめて移動や一括削除（Deleteキー）できます。</p>
-                <p><strong class="text-cyan-400">2. ドラッグ配線:</strong> 出力ピン(右)をクリック＆ドラッグし、入力ピン(左)へ繋ぎます。</p>
-                <p><strong class="text-cyan-400">3. 名称の変更:</strong> ノードのラベル（A, B, OUT 1等）をダブルクリックすると名称変更が可能です。真理値表の列順は作成順に保持されます。</p>
-                <p><strong class="text-rose-400">4. 配線の切り離し・削除:</strong> 入力ピンからドラッグで配線を浮かせ、空中で離すと削除。配線直接クリックでも削除できます。</p>
-                <p><strong class="text-cyan-400">5. 保存・読み込み:</strong> 右上の「保存」ボタンで回路をファイルに保存、「読み込み」でいつでも読み込めます。</p>
-                <p><strong class="text-cyan-400">6. 複数回路の自動分割:</strong> 独立した回路系統（配線が繋がっていない別の回路）を複数作成した場合、真理値表が右側に分割して追加配置されます。</p>
+                <p><strong class="text-cyan-400">1. パーツ配置:</strong> パレットからドラッグするか、タップするとキャンバスに配置されます。</p>
+                <p><strong class="text-cyan-400">2. パーツ移動・範囲選択:</strong> ノードをドラッグして移動。空エリアをドラッグ（またはスタイラスでなぞる）すると複数パーツを範囲選択し一括移動できます。</p>
+                <p><strong class="text-cyan-400">3. 配線（結線）:</strong> 出力ピン(右)を指やペンで押しながら入力ピン(左)までなぞる（ドラッグする）と配線できます。</p>
+                <p><strong class="text-cyan-400">4. 名称変更:</strong> ラベル（A, B等）をダブルタップ/ダブルクリックして名前を変更できます。</p>
+                <p><strong class="text-rose-400">5. 削除:</strong> 配線直接タップまたはパーツの右上[×]で削除できます（キーボードのDeleteキーにも対応）。</p>
             </div>
 
             <div class="pt-2 flex justify-end">
@@ -351,15 +356,15 @@
     <script>
         // Simulator State
         const state = {
-            nodes: [],       // List of logic nodes (Creation Order Maintained Here)
-            wires: [],       // List of active wires
+            nodes: [],       
+            wires: [],       
             nextId: 1,
             selectedNodeId: null,
-            selectedNodeIds: new Set(), // 複数選択中のノードIDの集合
+            selectedNodeIds: new Set(), 
             selectedWireId: null,
             connecting: null, // { fromNodeId, fromPinIndex, startPos, mousePos }
             
-            // 複数（グループ）ドラッグ移動用
+            // 複数グループ移動用
             draggingGroup: false,
             groupDragStartPositions: new Map(),
             groupDragStartMouse: { x: 0, y: 0 },
@@ -373,11 +378,15 @@
                 currentY: 0
             },
 
-            // Constant Truth Table State (Supports Multi-Table Partitioning)
+            // パレットからのタッチドラッグ用
+            paletteDraggingType: null,
+            paletteGhostEl: null,
+
+            // 真理値表
             truthTable: {
-                tables: [],            // Array of sub-table objects: { id, title, inputs, outputs, rows, error }
+                tables: [],            
                 panelCollapsed: false,
-                fontSizeClass: 'text-xs' // Default font size (Standard)
+                fontSizeClass: 'text-xs' 
             }
         };
 
@@ -391,7 +400,6 @@
         const ttPanel = document.getElementById('truth-table-panel');
         const ttStatusBadge = document.getElementById('tt-status-badge');
 
-        // Node Type Specifications
         const NODE_TYPES = {
             input: { name: '入力 (Input)', width: 110, height: 60, inputs: 0, outputs: 1, defaultState: { value: 0 } },
             output: { name: '出力 (Output)', width: 110, height: 60, inputs: 1, outputs: 0, defaultState: { value: 0 } },
@@ -402,43 +410,65 @@
 
         function init() {
             setupEventListeners();
-            setupPaletteDrag();
+            setupPaletteEvents();
             initResizer();
             setupFontSizeControls();
             startSimulationLoop();
-            rebuildTruthTableSchema(); // Initial empty schema setup
+            rebuildTruthTableSchema(); 
         }
 
-        function setupPaletteDrag() {
+        /* Pointer Events を利用したパレットからのドラッグ / タッチ配置 */
+        function setupPaletteEvents() {
             const items = document.querySelectorAll('.palette-item');
+
             items.forEach(item => {
-                item.addEventListener('dragstart', (e) => {
-                    const type = item.dataset.type;
-                    e.dataTransfer.setData('text/plain', type);
-                    e.dataTransfer.effectAllowed = 'copy';
-                });
-                
-                item.addEventListener('click', () => {
-                    const rect = canvasContainer.getBoundingClientRect();
-                    const x = canvasContainer.scrollLeft + Math.max(20, (canvasContainer.clientWidth / 2 - 50) + (Math.random() * 40 - 20));
-                    const y = canvasContainer.scrollTop + Math.max(20, (canvasContainer.clientHeight / 2 - 30) + (Math.random() * 40 - 20));
-                    createNode(item.dataset.type, x, y);
+                const type = item.dataset.type;
+
+                item.addEventListener('pointerdown', (e) => {
+                    e.preventDefault();
+                    state.paletteDraggingType = type;
+
+                    // ドラッグ表示用のゴーストエレメント作成
+                    const ghost = item.cloneNode(true);
+                    ghost.style.position = 'fixed';
+                    ghost.style.opacity = '0.8';
+                    ghost.style.pointerEvents = 'none';
+                    ghost.style.zIndex = '9999';
+                    ghost.style.width = `${item.offsetWidth}px`;
+                    ghost.style.left = `${e.clientX - item.offsetWidth / 2}px`;
+                    ghost.style.top = `${e.clientY - item.offsetHeight / 2}px`;
+                    document.body.appendChild(ghost);
+                    state.paletteGhostEl = ghost;
                 });
             });
 
-            canvasContainer.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'copy';
+            window.addEventListener('pointermove', (e) => {
+                if (state.paletteGhostEl) {
+                    state.paletteGhostEl.style.left = `${e.clientX - state.paletteGhostEl.offsetWidth / 2}px`;
+                    state.paletteGhostEl.style.top = `${e.clientY - state.paletteGhostEl.offsetHeight / 2}px`;
+                }
             });
 
-            canvasContainer.addEventListener('drop', (e) => {
-                e.preventDefault();
-                const type = e.dataTransfer.getData('text/plain');
-                if (type && NODE_TYPES[type]) {
+            window.addEventListener('pointerup', (e) => {
+                if (state.paletteDraggingType && state.paletteGhostEl) {
                     const rect = canvasContainer.getBoundingClientRect();
-                    const x = e.clientX - rect.left + canvasContainer.scrollLeft - 50;
-                    const y = e.clientY - rect.top + canvasContainer.scrollTop - 30;
-                    createNode(type, Math.max(10, x), Math.max(10, y));
+                    
+                    // キャンバス領域内でのドロップか判定
+                    if (
+                        e.clientX >= rect.left && e.clientX <= rect.right &&
+                        e.clientY >= rect.top && e.clientY <= rect.bottom
+                    ) {
+                        const x = e.clientX - rect.left + canvasContainer.scrollLeft - 50;
+                        const y = e.clientY - rect.top + canvasContainer.scrollTop - 30;
+                        createNode(state.paletteDraggingType, Math.max(10, x), Math.max(10, y));
+                    }
+
+                    // ゴースト破棄
+                    if (state.paletteGhostEl) {
+                        state.paletteGhostEl.remove();
+                        state.paletteGhostEl = null;
+                    }
+                    state.paletteDraggingType = null;
                 }
             });
         }
@@ -449,28 +479,29 @@
             let startY = 0;
             let startHeight = 0;
 
-            resizer.addEventListener('mousedown', (e) => {
+            resizer.addEventListener('pointerdown', (e) => {
                 isResizing = true;
                 startY = e.clientY;
                 startHeight = ttPanel.getBoundingClientRect().height;
-                document.body.style.cursor = 'row-resize';
-                document.body.style.userSelect = 'none';
+                resizer.setPointerCapture(e.pointerId);
             });
 
-            window.addEventListener('mousemove', (e) => {
+            resizer.addEventListener('pointermove', (e) => {
                 if (!isResizing) return;
                 const dy = startY - e.clientY;
                 const newHeight = Math.max(80, Math.min(600, startHeight + dy));
                 ttPanel.style.height = `${newHeight}px`;
             });
 
-            window.addEventListener('mouseup', () => {
+            const endResize = (e) => {
                 if (isResizing) {
                     isResizing = false;
-                    document.body.style.cursor = '';
-                    document.body.style.userSelect = '';
+                    try { resizer.releasePointerCapture(e.pointerId); } catch(err){}
                 }
-            });
+            };
+
+            resizer.addEventListener('pointerup', endResize);
+            resizer.addEventListener('pointercancel', endResize);
         }
 
         function setupFontSizeControls() {
@@ -487,7 +518,6 @@
                     btn.addEventListener('click', () => {
                         state.truthTable.fontSizeClass = s.key;
                         
-                        // Active status button toggle
                         fontSizes.forEach(item => {
                             const b = document.getElementById(item.id);
                             if (b) {
@@ -499,7 +529,6 @@
                             }
                         });
 
-                        // Dynamic font size change for all table elements
                         if (state.truthTable.tables) {
                             state.truthTable.tables.forEach((_, tIdx) => {
                                 const tableEl = document.getElementById(`tt-table-el-${tIdx}`);
@@ -520,7 +549,7 @@
             if (!label) {
                 if (type === 'input') {
                     const inputCount = state.nodes.filter(n => n.type === 'input').length;
-                    label = String.fromCharCode(65 + (inputCount % 26)); // Names A, B, C, etc.
+                    label = String.fromCharCode(65 + (inputCount % 26));
                 } else if (type === 'output') {
                     const outputCount = state.nodes.filter(n => n.type === 'output').length;
                     label = `OUT ${outputCount + 1}`;
@@ -544,8 +573,6 @@
             renderNodes();
             evaluateCircuit();
             updateEmptyHint();
-            
-            // RULE: Circuit structure changed -> Reset & Rebuild Truth Table Schema
             rebuildTruthTableSchema();
             return node;
         }
@@ -559,8 +586,6 @@
             renderWires();
             evaluateCircuit();
             updateEmptyHint();
-
-            // RULE: Circuit structure changed -> Reset & Rebuild Truth Table Schema
             rebuildTruthTableSchema();
         }
 
@@ -569,8 +594,6 @@
             if (state.selectedWireId === wireId) state.selectedWireId = null;
             renderWires();
             evaluateCircuit();
-
-            // RULE: Circuit structure changed -> Reset & Rebuild Truth Table Schema
             rebuildTruthTableSchema();
         }
 
@@ -606,7 +629,7 @@
                             <span class="node-label text-xs font-bold text-cyan-400 font-mono cursor-pointer hover:underline" title="ダブルクリックで名称変更">${node.label}</span>
                             <button class="btn-toggle text-xs font-mono font-black w-10 py-1 rounded-md transition-all ${
                                 isOn ? 'bg-cyan-500 text-slate-950 switch-on' : 'bg-slate-800 text-slate-400 border border-slate-700'
-                            }" title="クリックで 0 / 1 切替">
+                            }">
                                 ${isOn ? '1' : '0'}
                             </button>
                         </div>
@@ -643,20 +666,20 @@
                     <!-- Input Pins -->
                     <div class="absolute left-0 top-0 bottom-0 flex flex-col justify-around py-3 -translate-x-1/2">
                         ${Array.from({ length: def.inputs }).map((_, idx) => `
-                            <div class="pin-node input-pin w-3.5 h-3.5 rounded-full border-2 border-slate-900 ${
+                            <div class="pin-node input-pin w-4 h-4 rounded-full border-2 border-slate-900 ${
                                 node.inputs[idx] ? 'bg-cyan-400' : 'bg-slate-600'
                             } cursor-pointer transition-all" 
-                            data-node-id="${node.id}" data-pin-type="input" data-pin-index="${idx}" title="入力ピン ${idx + 1}"></div>
+                            data-node-id="${node.id}" data-pin-type="input" data-pin-index="${idx}"></div>
                         `).join('')}
                     </div>
 
                     <!-- Output Pins -->
                     <div class="absolute right-0 top-0 bottom-0 flex flex-col justify-around py-3 translate-x-1/2">
                         ${Array.from({ length: def.outputs }).map((_, idx) => `
-                            <div class="pin-node output-pin w-3.5 h-3.5 rounded-full border-2 border-slate-900 ${
+                            <div class="pin-node output-pin w-4 h-4 rounded-full border-2 border-slate-900 ${
                                 node.outputs[idx] ? 'bg-cyan-400' : 'bg-slate-600'
                             } cursor-pointer transition-all" 
-                            data-node-id="${node.id}" data-pin-type="output" data-pin-index="${idx}" title="出力ピン"></div>
+                            data-node-id="${node.id}" data-pin-type="output" data-pin-index="${idx}"></div>
                         `).join('')}
                     </div>
                 `;
@@ -666,7 +689,6 @@
             });
         }
 
-        // Standard MIL/JIS SVG Logic Gate Graphic
         function getGateSvg(type) {
             const fill = "#0f172a";
             if (type === 'and') {
@@ -693,10 +715,9 @@
         }
 
         function setupNodeEvents(el, node) {
-            el.addEventListener('mousedown', (e) => {
+            el.addEventListener('pointerdown', (e) => {
                 if (e.target.closest('.pin-node') || e.target.closest('.btn-toggle') || e.target.closest('.node-label')) return;
                 
-                // ShiftやCtrlが押されていない場合で、未選択ノードなら単一選択にする
                 if (!e.shiftKey && !e.ctrlKey && !state.selectedNodeIds.has(node.id)) {
                     state.selectedNodeIds.clear();
                     state.selectedNodeIds.add(node.id);
@@ -715,10 +736,9 @@
             });
 
             const header = el.querySelector('.node-header');
-            header.addEventListener('mousedown', (e) => {
+            header.addEventListener('pointerdown', (e) => {
                 e.stopPropagation();
                 
-                // ドラッグ開始時、クリックされたノードが選択に含まれていなければ選択更新
                 if (!state.selectedNodeIds.has(node.id)) {
                     if (!e.shiftKey && !e.ctrlKey) {
                         state.selectedNodeIds.clear();
@@ -728,7 +748,6 @@
                     renderNodes();
                 }
 
-                // グループ移動のセットアップ
                 state.draggingGroup = true;
                 const rect = canvasContainer.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left + canvasContainer.scrollLeft;
@@ -751,17 +770,22 @@
                 deleteNode(node.id);
             });
 
-            // Double Click to Rename Label
+            // Double Click / Double Tap Label Rename
             const labelEl = el.querySelector('.node-label');
             if (labelEl) {
-                labelEl.addEventListener('dblclick', (e) => {
-                    e.stopPropagation();
-                    const newLabel = prompt('ノードの名称（ラベル）を変更してください:', node.label);
-                    if (newLabel !== null && newLabel.trim() !== '') {
-                        node.label = newLabel.trim();
-                        renderNodes();
-                        renderTruthTableUI();
+                let lastTap = 0;
+                labelEl.addEventListener('pointerdown', (e) => {
+                    const now = Date.now();
+                    if (now - lastTap < 300) {
+                        e.stopPropagation();
+                        const newLabel = prompt('ノードの名称（ラベル）を変更してください:', node.label);
+                        if (newLabel !== null && newLabel.trim() !== '') {
+                            node.label = newLabel.trim();
+                            renderNodes();
+                            renderTruthTableUI();
+                        }
                     }
+                    lastTap = now;
                 });
             }
 
@@ -772,8 +796,6 @@
                     node.state.value = node.state.value === 1 ? 0 : 1;
                     evaluateCircuit();
                     renderNodes();
-
-                    // Switch clicked -> Record & Highlight Truth Table Row
                     recordAndHighlightTruthTableRow();
                 });
             }
@@ -829,7 +851,7 @@
             svgWires.innerHTML = svgHtml;
 
             svgWires.querySelectorAll('.wire-group').forEach(group => {
-                group.addEventListener('click', (e) => {
+                group.addEventListener('pointerdown', (e) => {
                     e.stopPropagation();
                     deleteWire(group.dataset.wireId);
                 });
@@ -880,9 +902,6 @@
             }
         }
 
-        /**
-         * Helper: Extract connected components (Independent Circuit Graphs)
-         */
         function getConnectedComponents() {
             const nodes = state.nodes;
             if (nodes.length === 0) return [];
@@ -926,9 +945,6 @@
             return components;
         }
 
-        /**
-         * Rebuild Truth Table Schema with Automatic Sub-circuit Partitioning
-         */
         function rebuildTruthTableSchema() {
             const allInputs = state.nodes.filter(n => n.type === 'input');
             const allOutputs = state.nodes.filter(n => n.type === 'output');
@@ -939,10 +955,7 @@
                 return;
             }
 
-            // Extract graph connected components
             const components = getConnectedComponents();
-
-            // Find valid systems that contain both input and output nodes
             const validSystems = [];
             components.forEach(comp => {
                 const inputs = comp.filter(n => n.type === 'input').sort((a, b) => state.nodes.indexOf(a) - state.nodes.indexOf(b));
@@ -953,12 +966,10 @@
                 }
             });
 
-            // RULE: If there are 2 or more distinct connected systems, split truth table!
             let systemGroups = [];
             if (validSystems.length >= 2) {
                 systemGroups = validSystems;
             } else {
-                // Otherwise (during construction/single system), aggregate as 1 combined table
                 systemGroups = [{ inputs: allInputs, outputs: allOutputs }];
             }
 
@@ -1005,9 +1016,6 @@
             recordAndHighlightTruthTableRow();
         }
 
-        /**
-         * Record and Highlight current state across all Truth Tables
-         */
         function recordAndHighlightTruthTableRow() {
             const tables = state.truthTable.tables;
             if (!tables || tables.length === 0) return;
@@ -1037,9 +1045,6 @@
             renderTruthTableUI(activeRowIndices);
         }
 
-        /**
-         * Action: Automated full circuit testing across all sub-tables
-         */
         function runAllTruthTablePatterns() {
             const tables = state.truthTable.tables;
             if (!tables || tables.length === 0) return;
@@ -1056,7 +1061,6 @@
                     });
 
                     evaluateCircuit();
-
                     row.outputValues = tbl.outputs.map(n => n.state.value);
                     row.tested = true;
                 });
@@ -1071,9 +1075,6 @@
             recordAndHighlightTruthTableRow();
         }
 
-        /**
-         * Save Circuit State to JSON File
-         */
         function saveCircuit() {
             const saveData = {
                 version: "1.0",
@@ -1097,9 +1098,6 @@
             URL.revokeObjectURL(url);
         }
 
-        /**
-         * Load Circuit State from JSON File
-         */
         function loadCircuit(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1113,7 +1111,6 @@
                         return;
                     }
 
-                    // Restore state
                     state.nodes = data.nodes;
                     state.wires = data.wires;
                     
@@ -1130,7 +1127,6 @@
                     state.selectedWireId = null;
                     state.connecting = null;
 
-                    // Re-render & Evaluate
                     renderNodes();
                     renderWires();
                     evaluateCircuit();
@@ -1145,9 +1141,6 @@
             event.target.value = '';
         }
 
-        /**
-         * Render Bottom Truth Table UI (Horizontally appending partitioned systems)
-         */
         function renderTruthTableUI(activeRowIndices = []) {
             const tables = state.truthTable.tables;
 
@@ -1209,8 +1202,8 @@
                             <thead>
                                 <tr class="bg-slate-900 sticky top-0 text-slate-300 border-b border-slate-800">
                                     <th class="py-1 px-2 text-slate-500 font-normal border-r border-slate-800/80 w-8">#</th>
-                                    ${tbl.inputs.map(n => `<th class="py-1 px-2.5 text-cyan-400 font-bold border-r border-slate-800/80" title="作成順">${n.label}</th>`).join('')}
-                                    ${tbl.outputs.map(n => `<th class="py-1 px-2.5 text-emerald-400 font-bold border-r border-slate-800/80 last:border-r-0" title="作成順">${n.label}</th>`).join('')}
+                                    ${tbl.inputs.map(n => `<th class="py-1 px-2.5 text-cyan-400 font-bold border-r border-slate-800/80">${n.label}</th>`).join('')}
+                                    ${tbl.outputs.map(n => `<th class="py-1 px-2.5 text-emerald-400 font-bold border-r border-slate-800/80 last:border-r-0">${n.label}</th>`).join('')}
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-800/60">
@@ -1223,12 +1216,10 @@
                         html += `<tr id="tt-row-${tIdx}-${rIdx}" class="transition-colors ${rowClass}">`;
                         html += `<td class="py-1 px-2 text-slate-600 border-r border-slate-800/60">${rIdx + 1}</td>`;
 
-                        // Inputs
                         row.inputPattern.forEach(val => {
                             html += `<td class="py-1 px-2.5 border-r border-slate-800/60 ${val === 1 ? 'text-cyan-400 font-bold' : 'text-slate-500'}">${val}</td>`;
                         });
 
-                        // Outputs
                         tbl.outputs.forEach((_, oIdx) => {
                             if (row.outputValues !== null) {
                                 const outVal = row.outputValues[oIdx];
@@ -1244,13 +1235,12 @@
                     html += `</tbody></table>`;
                 }
 
-                html += `</div>`; // Close card
+                html += `</div>`;
             });
 
             html += `</div>`;
             ttContainer.innerHTML = html;
 
-            // Auto-scroll active row
             tables.forEach((_, tIdx) => {
                 const activeRowIndex = activeRowIndices[tIdx];
                 if (activeRowIndex !== undefined && activeRowIndex !== -1) {
@@ -1270,7 +1260,6 @@
             requestAnimationFrame(update);
         }
 
-        /* 範囲選択領域の表示更新 */
         function updateSelectionBoxUI() {
             const boxEl = document.getElementById('selection-box');
             if (!boxEl) return;
@@ -1292,7 +1281,6 @@
             boxEl.classList.remove('hidden');
         }
 
-        /* 範囲選択矩形に含まれるノードの判定と選択更新 */
         function updateSelectionFromBox(isShiftOrCtrl = false) {
             const x1 = Math.min(state.selectionBox.startX, state.selectionBox.currentX);
             const y1 = Math.min(state.selectionBox.startY, state.selectionBox.currentY);
@@ -1310,7 +1298,6 @@
                 const nx2 = node.x + def.width;
                 const ny2 = node.y + def.height;
 
-                // 矩形の重なり判定 (AABB Overlap)
                 const overlap = !(nx2 < x1 || nx1 > x2 || ny2 < y1 || ny1 > y2);
 
                 if (overlap) {
@@ -1327,13 +1314,14 @@
             renderNodes();
         }
 
+        /* Pointer Event 全面統合ハンドラ */
         function setupEventListeners() {
-            window.addEventListener('mousemove', (e) => {
+            window.addEventListener('pointermove', (e) => {
                 const rect = canvasContainer.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left + canvasContainer.scrollLeft;
                 const mouseY = e.clientY - rect.top + canvasContainer.scrollTop;
 
-                // 選択中の全ノードをまとめて移動
+                // グループ移動
                 if (state.draggingGroup) {
                     const deltaX = mouseX - state.groupDragStartMouse.x;
                     const deltaY = mouseY - state.groupDragStartMouse.y;
@@ -1353,7 +1341,7 @@
                     renderNodes();
                 }
 
-                // 範囲選択枠の更新
+                // 範囲選択
                 if (state.selectionBox.active) {
                     state.selectionBox.currentX = mouseX;
                     state.selectionBox.currentY = mouseY;
@@ -1361,12 +1349,13 @@
                     updateSelectionFromBox(e.shiftKey || e.ctrlKey);
                 }
 
+                // 結線のドラッグ位置更新
                 if (state.connecting) {
                     state.connecting.mousePos = { x: mouseX, y: mouseY };
                 }
             });
 
-            window.addEventListener('mouseup', (e) => {
+            const handlePointerUp = (e) => {
                 if (state.draggingGroup) {
                     state.draggingGroup = false;
                     state.groupDragStartPositions.clear();
@@ -1377,11 +1366,13 @@
                     updateSelectionBoxUI();
                 }
 
+                // 結線ドラッグの確定処理（タッチ/ペン対応）
                 if (state.connecting) {
                     const rect = canvasContainer.getBoundingClientRect();
                     const mouseX = e.clientX - rect.left + canvasContainer.scrollLeft;
                     const mouseY = e.clientY - rect.top + canvasContainer.scrollTop;
 
+                    // ポインターの座標直下にある要素を取得
                     const elemUnderCursor = document.elementFromPoint(e.clientX, e.clientY);
                     const targetPin = elemUnderCursor ? elemUnderCursor.closest('.input-pin') : null;
 
@@ -1416,12 +1407,14 @@
                         }
                     }
                 }
-            });
+            };
 
-            canvasContainer.addEventListener('mousedown', (e) => {
+            window.addEventListener('pointerup', handlePointerUp);
+            window.addEventListener('pointercancel', handlePointerUp);
+
+            canvasContainer.addEventListener('pointerdown', (e) => {
                 const pin = e.target.closest('.pin-node');
                 if (!pin) {
-                    // ノードやワイヤー以外の空エリアでmousedownした場合、範囲選択を開始
                     if (!e.target.closest('.node-element') && !e.target.closest('.wire-group')) {
                         if (!e.shiftKey && !e.ctrlKey) {
                             state.selectedNodeIds.clear();
@@ -1534,7 +1527,6 @@
                 rebuildTruthTableSchema();
             });
 
-            // Save / Load Handlers
             document.getElementById('btn-save').addEventListener('click', saveCircuit);
             document.getElementById('btn-load').addEventListener('click', () => {
                 document.getElementById('file-input').click();
@@ -1545,7 +1537,6 @@
             document.getElementById('btn-help').addEventListener('click', () => helpModal.classList.remove('hidden'));
             document.getElementById('close-help').addEventListener('click', () => helpModal.classList.add('hidden'));
 
-            // Toggle Panel Collapse
             const btnTogglePanel = document.getElementById('btn-toggle-tt-panel');
             const iconTogglePanel = document.getElementById('icon-toggle-panel');
             btnTogglePanel.addEventListener('click', () => {
